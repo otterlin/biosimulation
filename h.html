@@ -122,13 +122,21 @@
                      style="max-width: 100%; max-height: 450px;">
                 
                 <!-- 數字標記位置（1-8 號） -->
-                <div class="number-marker" style="top: 15%; left: 21%;">1</div>
+                <!-- 1. 上下大靜脈 (微調向右) -->
+                <div class="number-marker" style="top: 15%; left: 23%;">1</div>
+                <!-- 2. 肺動脈 -->
                 <div class="number-marker" style="top: 14%; left: 44%;">2</div>
+                <!-- 3. 主動脈 -->
                 <div class="number-marker" style="top: 25%; left: 35%;">3</div>
+                <!-- 4. 肺靜脈 -->
                 <div class="number-marker" style="top: 35%; left: 68%;">4</div>
+                <!-- 5. 左心房 -->
                 <div class="number-marker" style="top: 46%; left: 61%;">5</div>
+                <!-- 6. 左心室 -->
                 <div class="number-marker" style="top: 70%; left: 58%;">6</div>
+                <!-- 7. 右心房 -->
                 <div class="number-marker" style="top: 40%; left: 28%;">7</div>
+                <!-- 8. 右心室 -->
                 <div class="number-marker" style="top: 70%; left: 35%;">8</div>
             </div>
         </div>
@@ -184,7 +192,6 @@
             const scoreDisplay = document.getElementById('score-display');
             const downloadBtn = document.getElementById('download-btn');
             
-            // 正確答案清單（僅保留 1-8 號）
             const correctAnswers = {
                 'zone-1': 'label-venacavae',
                 'zone-2': 'label-pa',
@@ -196,7 +203,6 @@
                 'zone-8': 'label-rv'
             };
 
-            // 動態產生 8 個作答區
             for (let i = 1; i <= 8; i++) {
                 const clone = template.content.cloneNode(true);
                 clone.querySelector('.zone-num').textContent = `${i}.`;
