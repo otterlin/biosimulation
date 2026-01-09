@@ -145,7 +145,6 @@
                 <div id="label-pv" draggable="true" class="label bg-pink-500 text-white py-2 px-3 rounded-lg shadow">肺靜脈</div>
                 <div id="label-aorta" draggable="true" class="label bg-red-500 text-white py-2 px-3 rounded-lg shadow">主動脈</div>
                 <div id="label-venacavae" draggable="true" class="label bg-blue-500 text-white py-2 px-3 rounded-lg shadow">上下大靜脈</div>
-                <!-- 瓣膜標籤已移除 -->
             </div>
 
             <div id="answer-area" class="bg-white shadow-lg rounded-lg p-4 overflow-y-auto flex-grow">
@@ -185,7 +184,7 @@
             const scoreDisplay = document.getElementById('score-display');
             const downloadBtn = document.getElementById('download-btn');
             
-            // 已更新：正確答案清單移除 9
+            // 已更新：正確答案清單移除 9，保持 2 號肺動脈與 3 號主動脈的設定
             const correctAnswers = {
                 'zone-1': 'label-venacavae',
                 'zone-2': 'label-pa',
