@@ -121,7 +121,7 @@
                      crossorigin="anonymous"
                      style="max-width: 100%; max-height: 450px;">
                 
-                <!-- 數字標記位置（已移除 9） -->
+                <!-- 數字標記位置（1-8 號） -->
                 <div class="number-marker" style="top: 15%; left: 21%;">1</div>
                 <div class="number-marker" style="top: 14%; left: 44%;">2</div>
                 <div class="number-marker" style="top: 25%; left: 35%;">3</div>
@@ -184,7 +184,7 @@
             const scoreDisplay = document.getElementById('score-display');
             const downloadBtn = document.getElementById('download-btn');
             
-            // 已更新：正確答案清單移除 9，保持 2 號肺動脈與 3 號主動脈的設定
+            // 正確答案清單（僅保留 1-8 號）
             const correctAnswers = {
                 'zone-1': 'label-venacavae',
                 'zone-2': 'label-pa',
