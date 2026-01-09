@@ -121,25 +121,15 @@
                      crossorigin="anonymous"
                      style="max-width: 100%; max-height: 450px;">
                 
-                <!-- 數字標記位置 -->
-                <!-- 1. 上下大靜脈 -->
+                <!-- 數字標記位置（已移除 9） -->
                 <div class="number-marker" style="top: 15%; left: 21%;">1</div>
-                <!-- 2. 肺動脈 -->
                 <div class="number-marker" style="top: 14%; left: 44%;">2</div>
-                <!-- 3. 主動脈 -->
                 <div class="number-marker" style="top: 25%; left: 35%;">3</div>
-                <!-- 4. 肺靜脈 -->
                 <div class="number-marker" style="top: 35%; left: 68%;">4</div>
-                <!-- 5. 左心房 -->
                 <div class="number-marker" style="top: 46%; left: 61%;">5</div>
-                <!-- 6. 左心室 -->
                 <div class="number-marker" style="top: 70%; left: 58%;">6</div>
-                <!-- 7. 右心房 -->
                 <div class="number-marker" style="top: 40%; left: 28%;">7</div>
-                <!-- 8. 右心室 -->
                 <div class="number-marker" style="top: 70%; left: 35%;">8</div>
-                <!-- 9. 瓣膜 (往左上方微調) -->
-                <div class="number-marker" style="top: 46%; left: 30%;">9</div>
             </div>
         </div>
 
@@ -151,11 +141,11 @@
                 <div id="label-ra" draggable="true" class="label bg-blue-500 text-white py-2 px-3 rounded-lg shadow">右心房</div>
                 <div id="label-lv" draggable="true" class="label bg-blue-500 text-white py-2 px-3 rounded-lg shadow">左心室</div>
                 <div id="label-rv" draggable="true" class="label bg-blue-500 text-white py-2 px-3 rounded-lg shadow">右心室</div>
-                <div id="label-valve" draggable="true" class="label bg-purple-500 text-white py-2 px-3 rounded-lg shadow">瓣膜</div>
                 <div id="label-pa" draggable="true" class="label bg-red-500 text-white py-2 px-3 rounded-lg shadow">肺動脈</div>
                 <div id="label-pv" draggable="true" class="label bg-pink-500 text-white py-2 px-3 rounded-lg shadow">肺靜脈</div>
                 <div id="label-aorta" draggable="true" class="label bg-red-500 text-white py-2 px-3 rounded-lg shadow">主動脈</div>
                 <div id="label-venacavae" draggable="true" class="label bg-blue-500 text-white py-2 px-3 rounded-lg shadow">上下大靜脈</div>
+                <!-- 瓣膜標籤已移除 -->
             </div>
 
             <div id="answer-area" class="bg-white shadow-lg rounded-lg p-4 overflow-y-auto flex-grow">
@@ -195,6 +185,7 @@
             const scoreDisplay = document.getElementById('score-display');
             const downloadBtn = document.getElementById('download-btn');
             
+            // 已更新：正確答案清單移除 9
             const correctAnswers = {
                 'zone-1': 'label-venacavae',
                 'zone-2': 'label-pa',
@@ -203,11 +194,11 @@
                 'zone-5': 'label-la',
                 'zone-6': 'label-lv',
                 'zone-7': 'label-ra',
-                'zone-8': 'label-rv',
-                'zone-9': 'label-valve'
+                'zone-8': 'label-rv'
             };
 
-            for (let i = 1; i <= 9; i++) {
+            // 動態產生 8 個作答區
+            for (let i = 1; i <= 8; i++) {
                 const clone = template.content.cloneNode(true);
                 clone.querySelector('.zone-num').textContent = `${i}.`;
                 clone.querySelector('.drop-zone').id = `zone-${i}`;
@@ -272,7 +263,7 @@
                     }
                 });
 
-                scoreDisplay.innerHTML = `${className} 班 ${seatNumber} 號 ${studentName}<br><span class="text-2xl font-bold">得分: ${score} / 9</span>`;
+                scoreDisplay.innerHTML = `${className} 班 ${seatNumber} 號 ${studentName}<br><span class="text-2xl font-bold">得分: ${score} / 8</span>`;
                 labels.forEach(l => l.setAttribute('draggable', 'false'));
                 downloadBtn.disabled = false;
             });
