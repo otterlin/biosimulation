@@ -121,12 +121,12 @@
                      crossorigin="anonymous"
                      style="max-width: 100%; max-height: 450px;">
                 
-                <!-- 數字標記位置維持前次調整 -->
+                <!-- 數字標記位置 -->
                 <!-- 1. 上下大靜脈 -->
                 <div class="number-marker" style="top: 15%; left: 21%;">1</div>
-                <!-- 2. 肺動脈 (原為主動脈，配合 3 號修改交換) -->
+                <!-- 2. 肺動脈 -->
                 <div class="number-marker" style="top: 14%; left: 44%;">2</div>
-                <!-- 3. 主動脈 (根據要求修改為正確答案) -->
+                <!-- 3. 主動脈 -->
                 <div class="number-marker" style="top: 25%; left: 35%;">3</div>
                 <!-- 4. 肺靜脈 -->
                 <div class="number-marker" style="top: 35%; left: 68%;">4</div>
@@ -138,8 +138,8 @@
                 <div class="number-marker" style="top: 40%; left: 28%;">7</div>
                 <!-- 8. 右心室 -->
                 <div class="number-marker" style="top: 70%; left: 35%;">8</div>
-                <!-- 9. 瓣膜 -->
-                <div class="number-marker" style="top: 48%; left: 32%;">9</div>
+                <!-- 9. 瓣膜 (往左上方微調) -->
+                <div class="number-marker" style="top: 46%; left: 30%;">9</div>
             </div>
         </div>
 
@@ -195,7 +195,6 @@
             const scoreDisplay = document.getElementById('score-display');
             const downloadBtn = document.getElementById('download-btn');
             
-            // 已更新：3 號改為主動脈，2 號改為肺動脈
             const correctAnswers = {
                 'zone-1': 'label-venacavae',
                 'zone-2': 'label-pa',
@@ -208,7 +207,6 @@
                 'zone-9': 'label-valve'
             };
 
-            // 動態產生 9 個作答區
             for (let i = 1; i <= 9; i++) {
                 const clone = template.content.cloneNode(true);
                 clone.querySelector('.zone-num').textContent = `${i}.`;
@@ -220,7 +218,6 @@
             const dropZones = document.querySelectorAll('.drop-zone');
             let draggedLabel = null;
 
-            // 拖曳邏輯
             labels.forEach(label => {
                 label.addEventListener('dragstart', (e) => {
                     draggedLabel = e.target;
@@ -258,7 +255,6 @@
                 });
             });
 
-            // 提交按鈕
             document.getElementById('submit-btn').addEventListener('click', () => {
                 let score = 0;
                 const studentName = document.getElementById('name').value || '匿名同學';
@@ -281,7 +277,6 @@
                 downloadBtn.disabled = false;
             });
 
-            // 重新開始
             document.getElementById('reset-btn').addEventListener('click', () => {
                 dropZones.forEach(zone => {
                     const label = zone.querySelector('.label');
@@ -293,7 +288,6 @@
                 downloadBtn.disabled = true;
             });
 
-            // 下載截圖
             downloadBtn.addEventListener('click', async () => {
                 const studentName = document.getElementById('name').value || '同學';
                 const originalText = scoreDisplay.innerHTML;
