@@ -121,16 +121,16 @@
                      crossorigin="anonymous"
                      style="max-width: 100%; max-height: 450px;">
                 
-                <!-- 數字標記位置微調 -->
+                <!-- 數字標記位置維持前次調整 -->
                 <!-- 1. 上下大靜脈 -->
                 <div class="number-marker" style="top: 15%; left: 21%;">1</div>
-                <!-- 2. 主動脈 -->
+                <!-- 2. 肺動脈 (原為主動脈，配合 3 號修改交換) -->
                 <div class="number-marker" style="top: 14%; left: 44%;">2</div>
-                <!-- 3. 肺動脈 -->
+                <!-- 3. 主動脈 (根據要求修改為正確答案) -->
                 <div class="number-marker" style="top: 25%; left: 35%;">3</div>
                 <!-- 4. 肺靜脈 -->
                 <div class="number-marker" style="top: 35%; left: 68%;">4</div>
-                <!-- 5. 左心房 (往下移) -->
+                <!-- 5. 左心房 -->
                 <div class="number-marker" style="top: 46%; left: 61%;">5</div>
                 <!-- 6. 左心室 -->
                 <div class="number-marker" style="top: 70%; left: 58%;">6</div>
@@ -138,8 +138,8 @@
                 <div class="number-marker" style="top: 40%; left: 28%;">7</div>
                 <!-- 8. 右心室 -->
                 <div class="number-marker" style="top: 70%; left: 35%;">8</div>
-                <!-- 9. 瓣膜 (往上移) -->
-                <div class="number-marker" style="top: 52%; left: 35%;">9</div>
+                <!-- 9. 瓣膜 -->
+                <div class="number-marker" style="top: 48%; left: 32%;">9</div>
             </div>
         </div>
 
@@ -195,10 +195,11 @@
             const scoreDisplay = document.getElementById('score-display');
             const downloadBtn = document.getElementById('download-btn');
             
+            // 已更新：3 號改為主動脈，2 號改為肺動脈
             const correctAnswers = {
                 'zone-1': 'label-venacavae',
-                'zone-2': 'label-aorta',
-                'zone-3': 'label-pa',
+                'zone-2': 'label-pa',
+                'zone-3': 'label-aorta',
                 'zone-4': 'label-pv',
                 'zone-5': 'label-la',
                 'zone-6': 'label-lv',
