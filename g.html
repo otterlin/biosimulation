@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>植物向地性與重力模擬 (Gravitropism Simulation)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f0fdf4; font-family: 'Noto Sans TC', sans-serif; }
+        canvas { display: block; }
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .no-select { user-select: none; -webkit-user-select: none; }
+        .chat-scroll::-webkit-scrollbar { width: 4px; }
+        .chat-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+        .chat-scroll::-webkit-scrollbar-thumb { background: #16a34a; border-radius: 2px; }
+        .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+        
+        /* Custom Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #16a34a;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #ddd;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="no-select text-slate-700">
+
+    <!-- 左側：控制面板 -->
+    <div class="fixed top-4 left-4 p-5 panel w-80 z-10 transition-opacity hover:opacity-100 opacity-95 max-h-[90vh] overflow-y-auto">
+        <h1 class="text-xl font-bold text-green-800 mb-1">重力與向地性模擬</h1>
+        <p class="text-xs text-gray-500 mb-4 border-b pb-2">除去光源干擾，單純觀察重力對生長素分佈的影響。</p>
+        
+        <!-- 控制項 -->
+        <div class="space-y-4 mb-4">
+            
+            <!-- 1. 初始角度 -->
+            <div>
+                <label class="flex justify-between text-sm font-bold text-gray-700 mb-1">
+                    <span>🔄 初始擺放角度</span>
+                    <span id="angle-val" class="text-green-600">0° (水平)</span>
+                </label>
+                <input type="range" id="angle-slider" min="-90" max="90" value="0" step="15" 
+                       oninput="updateAngleLabel(this.value)" onchange="resetPlantWithSettings()">
+                <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+                    <span>-90°(直立)</span>
+                    <span>0°(橫放)</span>
+                    <span>90°(倒立)</span>
+                </div>
+            </div>
+
+            <!-- 2. 重力影響力 -->
+            <div>
+                <label class="flex justify-between text-sm font-bold text-gray-700 mb-1">
+                    <span>🌍 重力/生長素敏感度</span>
+                    <span id="gravity-val" class="text-blue-600">正常</span>
+                </label>
+                <input type="range" id="gravity-slider" min="0" max="100" value="50" 
+                       oninput="updateGravityLabel(this.value)">
+                <div class="text-[10px] text-gray-400 mt-1">
+                    調低可模擬無重力(太空)環境，調高則反應劇烈。
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 狀態顯示 -->
+        <div class="space-y-3 text-sm border-t pt-3">
+            <!-- 莖的邏輯 -->
+            <div class="bg-green-50 p-2 rounded border border-green-200">
+                <div class="font-bold text-green-800 mb-1 flex items-center gap-1">
+                    🌱 莖 (Stem)
+                    <span class="text-[10px] bg-white px-1 rounded border text-green-600">背地性</span>
+                </div>
+                <div class="text-xs space-y-1">
+                    <p>重力導致生長素沉積於：<span class="font-bold">下方</span></p>
+                    <p>莖部對生長素反應：<span class="font-bold text-red-500">濃度高➔長得快</span></p>
+                    <p class="border-t border-green-200 pt-1 mt-1 text-green-700">
+                        結果：下方長得快，植物<span class="font-bold">向上彎曲</span>。
+                    </p>
+                </div>
+            </div>
+
+            <!-- 根的邏輯 -->
+            <div class="bg-amber-50 p-2 rounded border border-amber-200">
+                <div class="font-bold text-amber-800 mb-1 flex items-center gap-1">
+                    🟤 根 (Root)
+                    <span class="text-[10px] bg-white px-1 rounded border text-amber-600">向地性</span>
+                </div>
+                <div class="text-xs space-y-1">
+                    <p>重力導致生長素沉積於：<span class="font-bold">下方</span></p>
+                    <p>根部對生長素反應：<span class="font-bold text-blue-600">濃度高➔長得慢</span></p>
+                    <p class="border-t border-amber-200 pt-1 mt-1 text-amber-800">
+                        結果：下方長得慢，植物<span class="font-bold">向下彎曲</span>。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 space-y-2">
+            <button onclick="resetPlantWithSettings()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded transition text-xs flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                套用設定並重置
+            </button>
+            <button onclick="togglePause()" id="pause-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition text-xs">暫停 / 繼續</button>
+        </div>
+    </div>
+
+    <!-- 右側：AI 植物學家面板 -->
+    <div class="fixed bottom-4 right-4 w-80 panel z-20 flex flex-col transition-all duration-300 transform translate-y-0" id="ai-panel">
+        <div class="p-3 bg-green-100 rounded-t-xl border-b border-green-200 flex justify-between items-center cursor-pointer" onclick="toggleAiMinimize()">
+            <h2 class="font-bold text-green-800 flex items-center gap-2">
+                <span>🧬 AI 生物老師</span>
+            </h2>
+            <button class="text-green-600 font-bold text-xl leading-none" id="minimize-icon">−</button>
+        </div>
+        
+        <div id="ai-content-area" class="flex flex-col flex-1 p-3 gap-3">
+            <div id="chat-history" class="flex-1 overflow-y-auto min-h-[150px] max-h-[300px] bg-white/60 rounded p-2 border border-green-100 text-sm space-y-2 chat-scroll">
+                <div class="bg-green-50 text-green-900 p-2 rounded-lg rounded-tl-none inline-block max-w-[90%] text-xs">
+                    嗨！這裡沒有陽光，只有<b>重力</b>。試著調整「初始角度」讓植物橫著放，或是調整「重力敏感度」看看如果我們在太空中（重力=0），植物會怎麼長？
+                </div>
+            </div>
+
+            <button onclick="analyzeGrowth()" id="analyze-btn" class="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold py-2 px-3 rounded shadow-sm text-xs flex items-center justify-center gap-1 transition-all">
+                ✨ 分析目前的重力反應
+            </button>
+
+            <div class="flex gap-2 border-t pt-2 border-green-100">
+                <input type="text" id="user-input" placeholder="問問關於澱粉體或重力的問題..." 
+                       class="flex-1 text-xs p-2 rounded border border-green-200 focus:outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 bg-white/80"
+                       onkeypress="if(event.key === 'Enter') askGemini()">
+                <button onclick="askGemini()" class="bg-green-600 hover:bg-green-700 text-white px-3 rounded transition flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="simCanvas"></canvas>
+
+<script>
+/**
+ * 植物重力模擬核心
+ * 去除光源，專注於重力向量與角度計算
+ */
+
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- 狀態變數 ---
+let width, height;
+let isPaused = false;
+let animationId;
+
+// 物理與模擬參數
+const GROWTH_SPEED = 4; 
+let frameCount = 0;
+let gravityFactor = 0.5; // 0 ~ 1
+
+// 植物資料結構
+let stemSegments = [];
+let rootSegments = [];
+let plantOrigin = { x: 0, y: 0 };
+let initialAngleDeg = 0; // 0 = 橫放 (Horizontal)
+
+// Gemini API Configuration
+const apiKey = ""; 
+const apiModel = "gemini-2.5-flash-preview-09-2025"; 
+let isAiPanelMinimized = false;
+
+function init() {
+    resize();
+    resetPlantWithSettings();
+    window.addEventListener('resize', resize);
+    loop();
+}
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    
+    // 如果沒有植物，或是重置時機
+    if (stemSegments.length === 0) {
+        plantOrigin = { x: width / 2, y: height / 2 };
+        resetPlantWithSettings();
+    } else {
+        plantOrigin = { x: width / 2, y: height / 2 };
+    }
+}
+
+function updateAngleLabel(val) {
+    document.getElementById('angle-val').innerText = `${val}°`;
+    initialAngleDeg = parseInt(val);
+}
+
+function updateGravityLabel(val) {
+    let text = "正常";
+    if (val == 0) text = "無重力 (太空)";
+    else if (val < 30) text = "微重力";
+    else if (val > 80) text = "超重力/高敏感";
+    
+    document.getElementById('gravity-val').innerText = text;
+    gravityFactor = val / 100;
+}
+
+function resetPlantWithSettings() {
+    initialAngleDeg = parseInt(document.getElementById('angle-slider').value);
+    plantOrigin = { x: width / 2, y: height / 2 };
+    frameCount = 0;
+    
+    // 轉換角度為弧度
+    // 0度 = 向右 (Canvas 0)
+    // -90度 = 向上 (Canvas -PI/2)
+    const rad = initialAngleDeg * (Math.PI / 180);
+
+    // 莖：沿著設定角度生長
+    stemSegments = [{ 
+        x: plantOrigin.x, 
+        y: plantOrigin.y, 
+        angle: rad, 
+        width: 20, 
+        length: 5, 
+        type: 'stem', 
+        auxinLevel: 0 
+    }];
+
+    // 根：沿著反方向生長
+    rootSegments = [{ 
+        x: plantOrigin.x, 
+        y: plantOrigin.y, 
+        angle: rad + Math.PI, 
+        width: 12, 
+        length: 5, 
+        type: 'root', 
+        auxinLevel: 0 
+    }];
+    
+    // 繪製土壤/盆栽底座的視覺輔助
+    draw();
+}
+
+function togglePause() {
+    isPaused = !isPaused;
+}
+
+// --- Gemini API (保留原功能) ---
+function toggleAiMinimize() {
+    const content = document.getElementById('ai-content-area');
+    const icon = document.getElementById('minimize-icon');
+    if (isAiPanelMinimized) {
+        content.style.display = 'flex';
+        icon.innerText = '−';
+    } else {
+        content.style.display = 'none';
+        icon.innerText = '+';
+    }
+    isAiPanelMinimized = !isAiPanelMinimized;
+}
+
+function addMessage(role, text) {
+    const history = document.getElementById('chat-history');
+    const msgDiv = document.createElement('div');
+    if (role === 'user') {
+        msgDiv.className = "bg-white text-gray-800 p-2 rounded-lg rounded-tr-none self-end ml-auto max-w-[90%] text-xs shadow-sm border border-gray-100";
+        msgDiv.innerText = text;
+    } else if (role === 'ai') {
+        msgDiv.className = "bg-green-50 text-green-900 p-2 rounded-lg rounded-tl-none inline-block max-w-[90%] text-xs shadow-sm";
+        msgDiv.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+    } else if (role === 'loading') {
+        msgDiv.id = "ai-loading";
+        msgDiv.className = "bg-green-50 p-2 rounded-lg rounded-tl-none inline-block w-12 text-xs";
+        msgDiv.innerHTML = `<div class="flex justify-center space-x-1"><div class="w-1.5 h-1.5 bg-green-400 rounded-full typing-dot"></div><div class="w-1.5 h-1.5 bg-green-400 rounded-full typing-dot"></div><div class="w-1.5 h-1.5 bg-green-400 rounded-full typing-dot"></div></div>`;
+    }
+    history.appendChild(msgDiv);
+    history.scrollTop = history.scrollHeight;
+    return msgDiv; 
+}
+
+async function callGeminiAPI(userPrompt, systemInstruction) {
+    const loadingMsg = addMessage('loading');
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${apiModel}:generateContent?key=${apiKey}`;
+        const payload = {
+            contents: [{ parts: [{ text: userPrompt }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] }
+        };
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await response.json();
+        loadingMsg.remove();
+        if (data.error) { addMessage('ai', "抱歉，請稍後再試。"); return; }
+        const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        addMessage('ai', aiText || "無回應");
+    } catch (error) {
+        loadingMsg.remove();
+        addMessage('ai', "網路連線錯誤。");
+    }
+}
+
+async function analyzeGrowth() {
+    const stemTip = stemSegments[stemSegments.length - 1];
+    const rootTip = rootSegments[rootSegments.length - 1];
+    
+    // 計算目前角度 (0~360)
+    let stemDeg = (stemTip.angle * 180 / Math.PI) % 360;
+    let rootDeg = (rootTip.angle * 180 / Math.PI) % 360;
+    
+    const prompt = `
+    目前植物重力模擬器狀態：
+    1. 初始擺放角度：${initialAngleDeg} 度。
+    2. 重力敏感度設定：${(gravityFactor * 100).toFixed(0)}%。
+    3. 目前莖的生長角度：${stemDeg.toFixed(1)} 度。
+    4. 目前根的生長角度：${rootDeg.toFixed(1)} 度。
+    
+    請以生物老師口吻，解釋目前的現象：
+    - 如果重力敏感度低（接近0），為什麼植物長得直直的？
+    - 解釋「平衡石（statoliths）」或「澱粉體」如何感知重力，導致生長素分佈不均。
+    - 簡單說明為什麼根要往下長（為了水和養分），莖要往上長（為了光合作用，即使現在沒有光，基因也設定好了）。
+    `;
+    const systemPrompt = "你是一位親切的生物老師，擅長解釋植物生理學。";
+    
+    const btn = document.getElementById('analyze-btn');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "✨ 分析中...";
+    addMessage('user', '✨ 請分析目前的生長狀況與重力影響');
+    await callGeminiAPI(prompt, systemPrompt);
+    btn.disabled = false;
+    btn.innerText = originalText;
+}
+
+async function askGemini() {
+    const input = document.getElementById('user-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    addMessage('user', text);
+    const prompt = `使用者問題：${text}\n上下文：目前是重力模擬實驗，初始角度 ${initialAngleDeg}度，重力係數 ${gravityFactor}。`;
+    const systemPrompt = "你是一位生物老師，專注於解釋植物向性、生長素與重力的關係。";
+    await callGeminiAPI(prompt, systemPrompt);
+}
+
+// --- 生長演算法 (Gravitropism Logic) ---
+
+function grow() {
+    if (isPaused) return;
+
+    frameCount++;
+    if (frameCount % GROWTH_SPEED !== 0) return;
+
+    // 莖限制長度
+    if (stemSegments.length < 350) {
+        const tip = stemSegments[stemSegments.length - 1];
+        growSegment(stemSegments, tip, 'stem');
+    }
+
+    // 根限制長度
+    if (rootSegments.length < 250) {
+        const tip = rootSegments[rootSegments.length - 1];
+        growSegment(rootSegments, tip, 'root');
+    }
+}
+
+function growSegment(segments, tip, type) {
+    // 目標角度：
+    // 莖想要垂直向上 (-PI/2)
+    // 根想要垂直向下 (PI/2)
+    let targetAngle = (type === 'stem') ? -Math.PI / 2 : Math.PI / 2;
+    
+    // 計算與目標的角度差
+    let angleDiff = targetAngle - tip.angle;
+    
+    // Normalize angle difference to -PI ~ PI
+    while (angleDiff <= -Math.PI) angleDiff += Math.PI * 2;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+
+    // 轉彎速度取決於：
+    // 1. 角度差 (差越多轉越大力)
+    // 2. 重力因子 (gravityFactor) - 使用者設定
+    // 3. 基礎生長參數
+    
+    // 這裡加入一個物理細節：植物如果已經垂直了，受重力側向分量最小，彎曲力最小
+    // 我們可以用 cos(angle) 來代表「受重力影響的程度」(水平時最大)
+    // 但簡單起見，直接用角度差來驅動即可
+    
+    let turnRate = 0.15; // 基礎轉向能力
+    
+    // 計算生長素分佈導致的彎曲
+    // 當 gravityFactor = 0 (太空)，deltaAngle 應該要是 0，植物直直長
+    let deltaAngle = angleDiff * turnRate * gravityFactor;
+
+    // 限制單次最大彎曲，避免打結
+    const maxBend = 0.1; 
+    if (deltaAngle > maxBend) deltaAngle = maxBend;
+    if (deltaAngle < -maxBend) deltaAngle = -maxBend;
+
+    const newAngle = tip.angle + deltaAngle;
+    const newWidth = Math.max(2, tip.width * 0.995); // 越長越細
+    const length = 4;
+    
+    const newX = tip.x + Math.cos(newAngle) * length;
+    const newY = tip.y + Math.sin(newAngle) * length;
+
+    // --- 計算生長素沉降狀態 (Auxin Sedimentation) ---
+    // 這決定了視覺上紅/藍點點畫在哪一邊
+    // 我們需要知道哪一邊是「下方」
+    
+    // 法向量計算：
+    // 目前生長方向是 angle
+    // 「右側」法向量是 angle + PI/2
+    // 如果右側法向量的 Y 分量 > 0 (朝下)，代表右側是下方
+    
+    const rightNormalAngle = newAngle + Math.PI / 2;
+    const isRightSideDown = Math.sin(rightNormalAngle) > 0;
+    
+    // 計算「水平程度」，越水平，沉降越明顯
+    const horizontalness = Math.abs(Math.cos(newAngle));
+    
+    // auxinLevel: 0=均衡, 1=右側多(下方), -1=左側多(下方)
+    // 只有在重力係數夠大且有水平分量時才顯示沉降
+    let auxinState = 0;
+    
+    if (gravityFactor > 0.1 && horizontalness > 0.1) {
+        auxinState = isRightSideDown ? 1 : -1;
+    }
+
+    segments.push({
+        x: newX,
+        y: newY,
+        angle: newAngle,
+        width: newWidth,
+        auxinLevel: auxinState, // 1: Right/Bottom side high, -1: Left/Bottom side high
+        horizontalIntensity: horizontalness * gravityFactor, // 用於控制粒子密度
+        type: type
+    });
+}
+
+// --- 繪圖邏輯 ---
+
+function draw() {
+    ctx.clearRect(0, 0, width, height);
+
+    // 背景
+    // 畫一個大圓代表重力場的示意，或者單純背景
+    
+    // 畫盆栽/種子位置的旋轉底座
+    ctx.save();
+    ctx.translate(plantOrigin.x, plantOrigin.y);
+    ctx.rotate(initialAngleDeg * Math.PI / 180); // 旋轉整個盆栽
+    
+    // 盆栽
+    ctx.fillStyle = "#8d6e63"; // 土壤色
+    ctx.fillRect(-20, -20, 40, 40); 
+    ctx.strokeStyle = "#5d4037";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-20, -20, 40, 40);
+    
+    // 盆栽邊緣
+    ctx.beginPath();
+    ctx.moveTo(-25, -25);
+    ctx.lineTo(-20, 25);
+    ctx.lineTo(20, 25);
+    ctx.lineTo(25, -25);
+    ctx.strokeStyle = "#795548";
+    ctx.stroke();
+    
+    ctx.restore();
+
+    // 畫植物
+    drawPlantPart(rootSegments, "#8d6e63"); // 根：深褐色
+    drawPlantPart(stemSegments, "#4caf50"); // 莖：綠色
+    
+    // 畫中心種子
+    ctx.beginPath();
+    ctx.arc(plantOrigin.x, plantOrigin.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = "#d7ccc8";
+    ctx.fill();
+    ctx.stroke();
+
+    // 畫重力箭頭示意
+    drawGravityIndicator();
+}
+
+function drawGravityIndicator() {
+    if (gravityFactor < 0.1) return; // 無重力不畫
+
+    const x = width - 50;
+    const y = 100;
+    const size = 30 * gravityFactor;
+    
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    ctx.font = "12px sans-serif";
+    ctx.fillText("Gravity (g)", x - 25, y - 40);
+    
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, y - size);
+    ctx.lineTo(x, y + size);
+    ctx.lineTo(x - 5, y + size - 5);
+    ctx.moveTo(x, y + size);
+    ctx.lineTo(x + 5, y + size - 5);
+    ctx.stroke();
+}
+
+function drawPlantPart(segments, colorMain) {
+    if (segments.length < 2) return;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        
+        ctx.fillStyle = colorMain;
+        ctx.beginPath();
+        ctx.arc(seg.x, seg.y, seg.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 視覺化生長素 (Auxin)
+        // 條件：必須不是太舊的細胞 (i > length - 50)，且有重力與水平分量
+        // 生長素會沉積在「下方」
+        
+        const isActiveZone = i > segments.length - 60; // 只在生長端顯示明顯
+        
+        if (isActiveZone && seg.horizontalIntensity > 0.1) {
+            let leftCount = 0;
+            let rightCount = 0;
+            
+            // 基礎粒子數
+            const density = Math.floor(seg.horizontalIntensity * 5) + 1;
+            
+            if (seg.auxinLevel === 1) { // 右側是下方
+                rightCount = density + 2;
+                leftCount = 0;
+            } else if (seg.auxinLevel === -1) { // 左側是下方
+                leftCount = density + 2;
+                rightCount = 0;
+            }
+            
+            const seed = i * 4321;
+            drawAuxinParticles(seg, leftCount, 'left', seed, seg.type);
+            drawAuxinParticles(seg, rightCount, 'right', seed, seg.type);
+        }
+    }
+}
+
+function drawAuxinParticles(seg, count, side, seed, type) {
+    if (count <= 0) return;
+    
+    const perpAngle = seg.angle - Math.PI / 2;
+    const baseAngle = (side === 'left') ? perpAngle : perpAngle + Math.PI;
+    
+    // 顏色定義
+    // 莖：紅色 (生長素多 = 長得快)
+    // 根：藍色 (生長素多 = 長得慢)
+    ctx.fillStyle = (type === 'root') ? "rgba(37, 99, 235, 0.8)" : "rgba(220, 38, 38, 0.8)";
+
+    for (let k = 0; k < count; k++) {
+        // 隨機分佈在該側邊緣附近
+        const rnd1 = Math.abs(Math.sin(seed + k * 12.34)); // 0~1
+        const rnd2 = Math.abs(Math.cos(seed + k * 56.78)); // 0~1
+        
+        // 位置偏移：偏向外側 (0.4 ~ 0.9 半徑處)
+        const dist = (seg.width / 2) * (0.4 + rnd1 * 0.5);
+        
+        // 角度偏移：集中在該側中心
+        const angleOffset = (rnd2 - 0.5) * 1.5; 
+        
+        const pAngle = baseAngle + angleOffset;
+        const px = seg.x + Math.cos(pAngle) * dist;
+        const py = seg.y + Math.sin(pAngle) * dist;
+
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5, 0, Math.PI * 2); // 粒子大小
+        ctx.fill();
+    }
+}
+
+function loop() {
+    grow();
+    draw();
+    animationId = requestAnimationFrame(loop);
+}
+
+// 啟動
+init();
+
+</script>
+</body>
+</html>
