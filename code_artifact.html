@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>樣區採樣法互動模擬器 - Quadrat Sampling Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for beautiful statistical history -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f0fdf4; /* Light sage green background */
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-emerald-800 text-white py-6 px-4 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-wide flex items-center gap-2">
+                    <span>🌱</span> 樣區採樣法互動模擬系統
+                </h1>
+                <p class="text-emerald-100 text-sm mt-1">Quadrat Sampling Simulation Tool for Ecology</p>
+            </div>
+            <div class="flex gap-2">
+                <button id="btn-tutorial" class="bg-emerald-700 hover:bg-emerald-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1">
+                    📖 學習指南
+                </button>
+                <button id="btn-reset-all" class="bg-rose-700 hover:bg-rose-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1">
+                    🔄 重設模擬
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Panel: Control Box (4 cols) -->
+        <section class="lg:col-span-4 bg-white rounded-2xl p-6 shadow-sm border border-emerald-100 flex flex-col gap-6">
+            
+            <!-- 1. 生物與分布設定 -->
+            <div>
+                <h2 class="text-lg font-bold text-emerald-900 mb-3 flex items-center gap-2 border-b pb-2">
+                    <span class="text-xl">🐞</span> 1. 生態棲地設定
+                </h2>
+                
+                <!-- 生物選擇 -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-600 mb-2">目標觀測生物</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" onclick="selectOrganism('dandelion')" id="opt-dandelion" class="org-opt border-2 border-emerald-500 bg-emerald-50 text-slate-800 py-2 px-1 rounded-xl flex flex-col items-center gap-1 transition-all">
+                            <span class="text-2xl">🌼</span>
+                            <span class="text-xs font-bold">蒲公英 (植物)</span>
+                        </button>
+                        <button type="button" onclick="selectOrganism('snail')" id="opt-snail" class="org-opt border-2 border-slate-200 bg-white text-slate-600 py-2 px-1 rounded-xl flex flex-col items-center gap-1 transition-all hover:bg-slate-50">
+                            <span class="text-2xl">🐌</span>
+                            <span class="text-xs font-bold">非洲大蝸牛</span>
+                        </button>
+                        <button type="button" onclick="selectOrganism('starfish')" id="opt-starfish" class="org-opt border-2 border-slate-200 bg-white text-slate-600 py-2 px-1 rounded-xl flex flex-col items-center gap-1 transition-all hover:bg-slate-50">
+                            <span class="text-2xl">⭐</span>
+                            <span class="text-xs font-bold">潮間帶海星</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 分布類型 -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-600 mb-2">空間分布類型 (Distribution)</label>
+                    <select id="distribution-type" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="random">隨機分布 (Random) - 最常見的自然狀態</option>
+                        <option value="uniform">均勻分布 (Uniform) - 有領域性或資源競爭</option>
+                        <option value="clumped">叢集分布 (Clumped/Patchy) - 喜好群聚或水源集中</option>
+                    </select>
+                </div>
+
+                <!-- 真實個體數 -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-600">真實族群總數</label>
+                        <span id="label-true-pop" class="text-sm font-bold text-emerald-700">300 株</span>
+                    </div>
+                    <input type="range" id="param-true-pop" min="50" max="600" step="10" value="300" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600">
+                    <span class="text-[11px] text-slate-400 mt-0.5 block">（這是生態系中實際存在的真實數量，野外調查時我們通常無法得知）</span>
+                </div>
+            </div>
+
+            <!-- 2. 樣區規劃 -->
+            <div>
+                <h2 class="text-lg font-bold text-emerald-900 mb-3 flex items-center gap-2 border-b pb-2">
+                    <span class="text-xl">📐</span> 2. 樣區採樣規劃
+                </h2>
+
+                <!-- 調查區與樣區尺寸 -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">總調查面積 (A)</label>
+                        <div class="relative">
+                            <input type="number" id="param-total-area" value="400" disabled class="w-full bg-slate-100 border border-slate-200 rounded-lg p-2 text-sm text-slate-500 font-bold">
+                            <span class="absolute right-2 top-2 text-xs text-slate-400">m²</span>
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-1 block">固定：20m × 20m</span>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">單一樣區面積 (a)</label>
+                        <select id="param-quadrat-size" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                            <option value="1">1 m² (1m × 1m)</option>
+                            <option value="4" selected>4 m² (2m × 2m)</option>
+                            <option value="9">9 m² (3m × 3m)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 樣區數量 -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm font-medium text-slate-600">規劃設置樣區數 (n)</label>
+                        <span id="label-quadrat-count" class="text-sm font-bold text-emerald-700">5 個</span>
+                    </div>
+                    <input type="range" id="param-quadrat-count" min="1" max="15" step="1" value="5" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600">
+                </div>
+
+                <!-- 採樣方法 -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">抽樣放置模式</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="btn-mode-auto" onclick="setSamplingMode('auto')" class="border-2 border-emerald-500 bg-emerald-50 text-emerald-800 py-2 rounded-lg text-sm font-bold transition-all">
+                            🎲 隨機自動抽樣
+                        </button>
+                        <button type="button" id="btn-mode-manual" onclick="setSamplingMode('manual')" class="border-2 border-slate-200 bg-white text-slate-600 py-2 rounded-lg text-sm font-bold transition-all hover:bg-slate-50">
+                            🎯 手動點擊放置
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 操作按鈕 -->
+            <div class="mt-auto pt-4 border-t">
+                <button id="btn-generate-habitat" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-4 rounded-xl transition-colors mb-2 shadow-sm flex items-center justify-center gap-2">
+                    🔄 重新生成生態棲地
+                </button>
+                <button id="btn-run-sampling" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg">
+                    ⚡ 執行樣區採樣！
+                </button>
+            </div>
+        </section>
+
+        <!-- Center Panel: Interactive Map (5 cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-4">
+            
+            <!-- Map Card -->
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100 flex flex-col items-center">
+                <div class="w-full flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-1.5">
+                        <span class="text-xl">🗺️</span> 棲地實時模擬地圖 (20m × 20m)
+                    </h2>
+                    
+                    <!-- Visibility Toggle -->
+                    <button id="btn-toggle-visibility" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+                        <span id="eye-icon">👁️</span> <span id="visibility-text">隱藏真實分布</span>
+                    </button>
+                </div>
+
+                <!-- Canvas Wrapper -->
+                <div class="relative bg-emerald-950 rounded-xl overflow-hidden shadow-inner aspect-square w-full max-w-[450px] border-4 border-emerald-900">
+                    <canvas id="habitat-canvas" class="w-full h-full cursor-crosshair"></canvas>
+                    
+                    <!-- Manual Placement Tooltip overlay -->
+                    <div id="manual-toast" class="hidden absolute top-3 left-1/2 transform -translate-x-1/2 bg-slate-900/90 text-white px-4 py-2 rounded-full text-xs font-bold text-center pointer-events-none shadow-md whitespace-nowrap">
+                        🎯 請在地圖上點擊放置 <span id="manual-remain-count" class="text-emerald-400">5</span> 個樣區
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="w-full mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                    <div class="flex items-center gap-1">
+                        <span class="w-3 h-3 bg-emerald-900 border border-emerald-700 rounded"></span>
+                        <span>調查總範圍 (400 m²)</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="w-3 h-3 border-2 border-dashed border-yellow-400 bg-yellow-400/20 rounded"></span>
+                        <span>樣區範圍 (方格)</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="text-sm" id="legend-icon">🌼</span>
+                        <span id="legend-name">觀測生物</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Fact Box -->
+            <div class="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
+                <h3 class="font-bold text-emerald-900 mb-2 flex items-center gap-1 text-sm">
+                    💡 採樣原理小知識：
+                </h3>
+                <p id="ecological-tip" class="text-xs text-emerald-800 leading-relaxed">
+                    在無法數完所有個體時，藉由估算部分樣區的密度，乘上總面積即可推估總數。樣區越多、越隨機，估算出的結果越接近真實的「300株」。
+                </p>
+            </div>
+        </section>
+
+        <!-- Right Panel: Real-time Stats & History (3 cols) -->
+        <section class="lg:col-span-3 flex flex-col gap-6">
+            
+            <!-- Result Panel -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-emerald-100 flex flex-col gap-5">
+                <h2 class="text-lg font-bold text-slate-800 border-b pb-2 flex items-center gap-1.5">
+                    📊 當前估算結果
+                </h2>
+
+                <!-- Main metrics -->
+                <div class="grid grid-cols-1 gap-4">
+                    
+                    <!-- 1. Average density -->
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                        <span class="text-xs text-slate-500 block font-medium">單一小樣區平均個體數</span>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span id="metric-avg-count" class="text-3xl font-black text-slate-800">0.0</span>
+                            <span class="text-xs text-slate-500" id="unit-density">株/樣區</span>
+                        </div>
+                        <span id="metric-density-m2" class="text-[10px] text-slate-400 block mt-0.5">相當於 0.00 株 / m²</span>
+                    </div>
+
+                    <!-- 2. Estimated Population -->
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                        <span class="text-xs text-emerald-800 block font-bold">估算族群總數 (Est.)</span>
+                        <div class="flex items-baseline gap-1 mt-1">
+                            <span id="metric-est-pop" class="text-4xl font-black text-emerald-700">--</span>
+                            <span class="text-xs text-emerald-700 font-bold" id="unit-species-1">株</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. True Population and Error Rate -->
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-[10px] text-slate-500 block font-medium">真實族群總數</span>
+                            <span id="metric-true-pop" class="text-lg font-bold text-slate-700">300</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-500 block font-medium">估算誤差率</span>
+                            <span id="metric-error-rate" class="text-lg font-black text-rose-600">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Equation Display Step -->
+                <div class="bg-slate-50 p-3 rounded-lg border border-dashed border-slate-200">
+                    <span class="text-xs font-bold text-slate-600 block mb-1">🧮 估算公式計算過程：</span>
+                    <p id="formula-calc-step" class="text-xs font-mono text-slate-500 break-words">
+                        (尚未進行採樣)
+                    </p>
+                </div>
+            </div>
+
+            <!-- History Chart/List Card -->
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100 flex flex-col gap-3">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h2 class="text-sm font-bold text-slate-800 flex items-center gap-1">
+                        📈 歷史實驗統計
+                    </h2>
+                    <button id="btn-clear-history" class="text-[10px] text-rose-500 hover:underline font-bold">
+                        清除紀錄
+                    </button>
+                </div>
+
+                <!-- Mini Chart Container -->
+                <div class="h-[150px] w-full relative">
+                    <canvas id="history-chart"></canvas>
+                </div>
+                
+                <!-- Instruction under chart -->
+                <p class="text-[10px] text-slate-400 text-center leading-relaxed mt-1">
+                    折線越接近中線（0% 誤差），表示估算越準確。<br>試試看：增加「樣區數」或觀察不同「空間分布」的誤差波動！
+                </p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Detailed Equation Explainer Drawer/Section -->
+    <section class="max-w-7xl mx-auto px-4 lg:px-6 pb-12">
+        <div class="bg-white rounded-2xl p-6 lg:p-8 shadow-sm border border-emerald-100 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+                <h3 class="text-xl font-extrabold text-emerald-900 mb-4 flex items-center gap-1.5">
+                    🧮 什麼是樣區採樣法？
+                </h3>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    在生態學中，要直接數完大範圍內（如一整座森林、一片草地）的全部生物，往往在時間與體力上是不可能的任務。
+                    因此，科學家透過<strong>隨機設置數個小樣區（Quadrats）</strong>，數出樣區內個體數後計算其<strong>平均密度</strong>，以此平均密度乘以<strong>總面積</strong>，進而估算出整體的族群數量。
+                </p>
+                
+                <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                    <h4 class="font-bold text-emerald-800 text-sm mb-2">💡 核心數學模型：</h4>
+                    <div class="overflow-x-auto text-xs font-mono text-emerald-950 py-1">
+                        估算總數 (N) = 樣區平均個體數 (m) × ( 調查總面積 (A) / 單一樣區面積 (a) )
+                    </div>
+                    <p class="text-[11px] text-emerald-700 mt-2">
+                        本模擬器中：總調查面積 $A = 400 \text{ m}^2$ (固定 20m × 20m)，而樣區面積 $a$ 與樣區數 $n$ 均可由您自行設定。
+                    </p>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-xl font-extrabold text-emerald-900 mb-4 flex items-center gap-1.5">
+                    ⚠️ 影響估算準確度的關鍵因素
+                </h3>
+                <ul class="space-y-3 text-slate-600 text-sm">
+                    <li class="flex gap-2">
+                        <span class="text-emerald-500 font-bold">1.</span>
+                        <span><strong>樣區數量 (Sample Size)</strong>：樣區數越多，平均密度越不容易受到單一極端值的干擾，誤差通常會顯著降低。</span>
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="text-emerald-500 font-bold">2.</span>
+                        <span><strong>分布方式 (Distribution Pattern)</strong>：
+                            <br><span class="text-xs text-slate-500">• <strong>隨機分布</strong>：生物位置無規律。</span>
+                            <br><span class="text-xs text-slate-500">• <strong>均勻分布</strong>：競爭激烈，生物等距散開。樣區法在此情況下<strong>極為精準</strong>。</span>
+                            <br><span class="text-xs text-slate-500">• <strong>叢集分布</strong>：生物抱團成群落。樣區可能抓到「超多個體」或「完全空的」，導致<strong>估算誤差通常極大</strong>。</span>
+                        </span>
+                    </li>
+                    <li class="flex gap-2">
+                        <span class="text-emerald-500 font-bold">3.</span>
+                        <span><strong>樣區大小 (Quadrat Size)</strong>：必須與觀測生物的大小成適當比例。太小容易錯過，太大則失去採樣意義。</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tutorial Modal (Hidden by Default) -->
+    <div id="tutorial-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl flex flex-col gap-4 animate-fade-in-up">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-1">
+                    🌱 樣區採樣法：模擬器操作指引
+                </h3>
+                <button id="btn-close-tutorial" class="text-slate-400 hover:text-slate-600 text-2xl">
+                    &times;
+                </button>
+            </div>
+            
+            <div class="text-sm text-slate-600 leading-relaxed space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                <p class="font-bold text-emerald-800">歡迎使用本生態模擬系統！您可以透過以下步驟進行探索：</p>
+                
+                <div class="border-l-4 border-emerald-500 pl-3">
+                    <p class="font-bold text-slate-800">步驟 A：設定你的生態棲地</p>
+                    <p>在左側控制台選擇你想觀測的生物（如蒲公英 🌼、蝸牛 🐌、海星 ⭐）。接著設定不同的<strong>「空間分布類型」</strong>。觀察地圖上紅點或群落的變化。</p>
+                </div>
+
+                <div class="border-l-4 border-emerald-500 pl-3">
+                    <p class="font-bold text-slate-800">步驟 B：規劃採樣策略</p>
+                    <p>調整「規劃設置樣區數」與「單一樣區面積」。您可以選擇：</p>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li><strong>隨機自動抽樣</strong>：程式會完美隨機地將樣區拋撒到地圖各處。</li>
+                        <li><strong>手動點擊放置</strong>：由您親自在地圖上決定樣區要擺在哪裡！(注意：這能讓您體會到主觀挑選樣區造成的偏差喔！)</li>
+                    </ul>
+                </div>
+
+                <div class="border-l-4 border-emerald-500 pl-3">
+                    <p class="font-bold text-slate-800">步驟 C：執行採樣並分析</p>
+                    <p>按下右下角大大的 <strong>「執行樣區採樣」</strong> 按鈕。地圖中將會亮起黃色邊框的樣區，並標示哪些個體成功被圈選進去。右側則會立刻計算出「估算數量」與「真實數量」的「誤差百分比」。</p>
+                </div>
+
+                <div class="border-l-4 border-emerald-500 pl-3">
+                    <p class="font-bold text-emerald-800">🧐 推薦探索課題：</p>
+                    <ol class="list-decimal pl-5 space-y-1">
+                        <li><strong>「樣區數的影響」</strong>：設定成「叢集分布」，分別用「1個樣區」與「10個樣區」採樣多次。觀察右下角的折線圖，哪一個估計值比較穩定、误差較小？</li>
+                        <li><strong>「分布類型的差別」</strong>：在均勻分布與叢集分布中，同樣使用 5 個樣區，哪一種分布的估計誤差通常比較低？</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="border-t pt-3 flex justify-end">
+                <button id="btn-tutorial-ok" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors">
+                    我明白了，開始探索！
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Message Banner (Custom Modal) -->
+    <div id="alert-banner" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-rose-600 text-white px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center gap-2 z-50">
+        <span class="text-lg">⚠️</span>
+        <span id="alert-text">警告訊息</span>
+    </div>
+
+    <script>
+        // --- CONSTANTS & STATE ---
+        const FIELD_SIZE = 20; // 20m x 20m
+        const CANVAS_DOM_SIZE = 450; // pixels
+        
+        // App State
+        let state = {
+            organism: 'dandelion', // dandelion, snail, starfish
+            distribution: 'random', // random, uniform, clumped
+            truePopulation: 300,
+            quadratSize: 4, // 1, 4, 9 m2
+            quadratCount: 5,
+            samplingMode: 'auto', // auto, manual
+            showTruePopulation: true,
+            
+            // Sim Data
+            organisms: [], // Array of {x, y} coordinates (0 to 20)
+            placedQuadrats: [], // Array of {x, y, w, h} (0 to 20, representing top-left coordinates and sizes)
+            samplingResults: null, // Latest count data
+            history: [] // Array of {runId, size, count, estimated, truePop, error}
+        };
+
+        const SPECIES_CONFIG = {
+            dandelion: { name: '蒲公英', icon: '🌼', unit: '株', color: '#fbbf24', bg: '#fef08a', tip: '蒲公英的種子隨風飄散，通常呈現「隨機分布」；但若局部的土壤環境特別肥沃，也可能呈現微幅的「叢集分布」。' },
+            snail: { name: '非洲大蝸牛', icon: '🐌', unit: '隻', color: '#b45309', bg: '#fed7aa', tip: '蝸牛爬行緩慢，通常喜歡聚集在潮濕、有陰影的落葉堆或陰暗牆角，呈現高度的「叢集分布」。' },
+            starfish: { name: '潮間帶海星', icon: '⭐', unit: '隻', color: '#f43f5e', bg: '#fecdd3', tip: '在寬廣的潮間帶礁岩平台上，如果食物分布平均且彼此有空間競爭，海星可能呈現接近「均勻分布」或微幅隨機狀態。' }
+        };
+
+        // --- DOM ELEMENTS ---
+        const canvas = document.getElementById('habitat-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Form controls
+        const paramTruePop = document.getElementById('param-true-pop');
+        const labelTruePop = document.getElementById('label-true-pop');
+        const selectDistribution = document.getElementById('distribution-type');
+        const selectQuadratSize = document.getElementById('param-quadrat-size');
+        const paramQuadratCount = document.getElementById('param-quadrat-count');
+        const labelQuadratCount = document.getElementById('label-quadrat-count');
+        
+        // Buttons
+        const btnGenerate = document.getElementById('btn-generate-habitat');
+        const btnRunSampling = document.getElementById('btn-run-sampling');
+        const btnToggleVisibility = document.getElementById('btn-toggle-visibility');
+        const btnResetAll = document.getElementById('btn-reset-all');
+        const btnTutorial = document.getElementById('btn-tutorial');
+        const btnCloseTutorial = document.getElementById('btn-close-tutorial');
+        const btnTutorialOk = document.getElementById('btn-tutorial-ok');
+        const btnClearHistory = document.getElementById('btn-clear-history');
+        
+        // Dynamic labels & results
+        const metricAvgCount = document.getElementById('metric-avg-count');
+        const metricDensityM2 = document.getElementById('metric-density-m2');
+        const metricEstPop = document.getElementById('metric-est-pop');
+        const metricTruePop = document.getElementById('metric-true-pop');
+        const metricErrorRate = document.getElementById('metric-error-rate');
+        const formulaCalcStep = document.getElementById('formula-calc-step');
+        const ecoTip = document.getElementById('ecological-tip');
+        const legendIcon = document.getElementById('legend-icon');
+        const legendName = document.getElementById('legend-name');
+        const manualToast = document.getElementById('manual-toast');
+        const manualRemainCount = document.getElementById('manual-remain-count');
+        
+        // Charts
+        let historyChart = null;
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            // Setup canvas high-DPI scaling
+            setupCanvas();
+            
+            // Generate initial ecosystem
+            generateHabitat();
+            
+            // Render
+            draw();
+            
+            // Setup Chart.js
+            initChart();
+            
+            // Bind listeners
+            bindEvents();
+        };
+
+        function setupCanvas() {
+            // Device pixel ratio setup for crisp canvas
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = CANVAS_DOM_SIZE * dpr;
+            canvas.height = CANVAS_DOM_SIZE * dpr;
+            ctx.scale(dpr, dpr);
+            canvas.style.width = CANVAS_DOM_SIZE + 'px';
+            canvas.style.height = CANVAS_DOM_SIZE + 'px';
+        }
+
+        // --- ALGORITHMS FOR SPECIES GENERATION (DISTRIBUTIONS) ---
+        function generateHabitat() {
+            state.organisms = [];
+            state.placedQuadrats = [];
+            state.samplingResults = null;
+            resetResultUI();
+            
+            const count = state.truePopulation;
+            
+            if (state.distribution === 'random') {
+                // Completely random distribution
+                for (let i = 0; i < count; i++) {
+                    state.organisms.push({
+                        x: Math.random() * FIELD_SIZE,
+                        y: Math.random() * FIELD_SIZE
+                    });
+                }
+            } 
+            else if (state.distribution === 'uniform') {
+                // Grid-like distribution with a tiny bit of random jitter (territorial spacing)
+                const gridSide = Math.ceil(Math.sqrt(count));
+                const step = FIELD_SIZE / (gridSide + 1);
+                let addedCount = 0;
+                
+                for (let i = 1; i <= gridSide && addedCount < count; i++) {
+                    for (let j = 1; j <= gridSide && addedCount < count; j++) {
+                        // Base grid coordinate
+                        let bx = i * step;
+                        let by = j * step;
+                        // Add small jitter (max 20% of step size)
+                        let jitterAmount = step * 0.25;
+                        let x = bx + (Math.random() - 0.5) * jitterAmount;
+                        let y = by + (Math.random() - 0.5) * jitterAmount;
+                        
+                        // Keep within bounds
+                        x = Math.max(0.2, Math.min(FIELD_SIZE - 0.2, x));
+                        y = Math.max(0.2, Math.min(FIELD_SIZE - 0.2, y));
+                        
+                        state.organisms.push({ x, y });
+                        addedCount++;
+                    }
+                }
+                
+                // If we need a few more because of grid rounding, add randomly
+                while (state.organisms.length < count) {
+                    state.organisms.push({
+                        x: Math.random() * FIELD_SIZE,
+                        y: Math.random() * FIELD_SIZE
+                    });
+                }
+            } 
+            else if (state.distribution === 'clumped') {
+                // Clumped (Patchy) distribution: generate 3-5 "cluster parents"
+                const numClusters = 4 + Math.floor(Math.random() * 2); // 4 or 5 clusters
+                const clusters = [];
+                for (let c = 0; c < numClusters; c++) {
+                    clusters.push({
+                        x: 3 + Math.random() * (FIELD_SIZE - 6),
+                        y: 3 + Math.random() * (FIELD_SIZE - 6),
+                        density: 0.15 + Math.random() * 0.2 // spread factor
+                    });
+                }
+                
+                for (let i = 0; i < count; i++) {
+                    // Decide which cluster to belong to
+                    const clusterIdx = Math.floor(Math.random() * numClusters);
+                    const parent = clusters[clusterIdx];
+                    
+                    // Gaussian-like offset using Box-Muller transform
+                    let u1 = Math.random();
+                    if(u1 === 0) u1 = 0.0001; // Avoid log(0)
+                    let u2 = Math.random();
+                    let stdNormal = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+                    
+                    // Scale offset according to cluster's spread factor
+                    let offsetDistance = stdNormal * parent.density * FIELD_SIZE;
+                    let angle = Math.random() * Math.PI * 2;
+                    
+                    let x = parent.x + Math.cos(angle) * offsetDistance;
+                    let y = parent.y + Math.sin(angle) * offsetDistance;
+                    
+                    // Keep within bounds
+                    x = Math.max(0.1, Math.min(FIELD_SIZE - 0.1, x));
+                    y = Math.max(0.1, Math.min(FIELD_SIZE - 0.1, y));
+                    
+                    state.organisms.push({ x, y });
+                }
+            }
+            
+            draw();
+        }
+
+        // --- SAMPLING LOGIC ---
+        function runAutoSampling() {
+            state.placedQuadrats = [];
+            const n = state.quadratCount;
+            const size = Math.sqrt(state.quadratSize); // width/height in meters (1m, 2m, or 3m)
+            
+            for (let i = 0; i < n; i++) {
+                // Ensure whole quadrat falls inside the 20x20 field
+                const x = Math.random() * (FIELD_SIZE - size);
+                const y = Math.random() * (FIELD_SIZE - size);
+                state.placedQuadrats.push({
+                    x: x,
+                    y: y,
+                    w: size,
+                    h: size
+                });
+            }
+            
+            calculateSampling();
+        }
+
+        function calculateSampling() {
+            if (state.placedQuadrats.length === 0) return;
+            
+            const results = [];
+            let totalCaptured = 0;
+            
+            // Mark all organisms inside any quadrat, and count per quadrat
+            state.placedQuadrats.forEach((quadrat, qIdx) => {
+                let count = 0;
+                state.organisms.forEach(org => {
+                    const isInside = (org.x >= quadrat.x && org.x <= quadrat.x + quadrat.w &&
+                                      org.y >= quadrat.y && org.y <= quadrat.y + quadrat.h);
+                    if (isInside) {
+                        count++;
+                    }
+                });
+                results.push({ quadratIndex: qIdx, count: count });
+                totalCaptured += count;
+            });
+            
+            const n = state.placedQuadrats.length;
+            const avgCount = totalCaptured / n;
+            const totalArea = FIELD_SIZE * FIELD_SIZE; // 400 m2
+            
+            // Sampling Formula: Est = AvgCount * (TotalArea / QuadratArea)
+            const estimatedPop = Math.round(avgCount * (totalArea / state.quadratSize));
+            const errorRate = ((estimatedPop - state.truePopulation) / state.truePopulation) * 100;
+            
+            state.samplingResults = {
+                avgCount: avgCount,
+                estimatedPop: estimatedPop,
+                errorRate: errorRate,
+                quadratData: results
+            };
+            
+            updateResultUI();
+            saveToHistory();
+            draw();
+        }
+
+        // --- USER INTERFACE HANDLERS ---
+        function bindEvents() {
+            // Parameter Change
+            paramTruePop.addEventListener('input', function() {
+                const val = parseInt(this.value);
+                const species = SPECIES_CONFIG[state.organism];
+                labelTruePop.innerText = `${val} ${species.unit}`;
+                state.truePopulation = val;
+                // Generate and draw immediately to feel super interactive
+                generateHabitat();
+            });
+            
+            selectDistribution.addEventListener('change', function() {
+                state.distribution = this.value;
+                generateHabitat();
+            });
+            
+            selectQuadratSize.addEventListener('change', function() {
+                state.quadratSize = parseInt(this.value);
+                // Clear active quadrats to prevent scale misalignment
+                state.placedQuadrats = [];
+                state.samplingResults = null;
+                resetResultUI();
+                draw();
+            });
+            
+            paramQuadratCount.addEventListener('input', function() {
+                state.quadratCount = parseInt(this.value);
+                labelQuadratCount.innerText = `${state.quadratCount} 個`;
+                
+                // If in manual mode, reset placement when count changes
+                if (state.samplingMode === 'manual') {
+                    state.placedQuadrats = [];
+                    state.samplingResults = null;
+                    resetResultUI();
+                    updateManualToast();
+                    draw();
+                }
+            });
+            
+            // Regenerate Habitat Button
+            btnGenerate.addEventListener('click', function() {
+                generateHabitat();
+            });
+            
+            // Run Sampling Button
+            btnRunSampling.addEventListener('click', function() {
+                if (state.samplingMode === 'auto') {
+                    runAutoSampling();
+                } else {
+                    // Manual mode: If they haven't finished placing, show alert
+                    if (state.placedQuadrats.length < state.quadratCount) {
+                        showAlert(`請先在地圖上點選放置完全部 ${state.quadratCount} 個樣區！`);
+                    } else {
+                        calculateSampling();
+                    }
+                }
+            });
+            
+            // Toggle visibility
+            btnToggleVisibility.addEventListener('click', function() {
+                state.showTruePopulation = !state.showTruePopulation;
+                if (state.showTruePopulation) {
+                    btnToggleVisibility.innerHTML = '👁️ <span id="visibility-text">隱藏真實分布</span>';
+                } else {
+                    btnToggleVisibility.innerHTML = '👁️‍🗨️ <span id="visibility-text">顯示真實分布</span>';
+                }
+                draw();
+            });
+            
+            // Reset simulation
+            btnResetAll.addEventListener('click', function() {
+                state.organism = 'dandelion';
+                state.distribution = 'random';
+                state.truePopulation = 300;
+                state.quadratSize = 4;
+                state.quadratCount = 5;
+                state.samplingMode = 'auto';
+                state.showTruePopulation = true;
+                state.history = [];
+                
+                // Sync elements
+                syncFormControls();
+                generateHabitat();
+                updateHistoryChart();
+            });
+            
+            // Tutorial buttons
+            btnTutorial.addEventListener('click', () => {
+                document.getElementById('tutorial-modal').classList.remove('hidden');
+            });
+            btnCloseTutorial.addEventListener('click', () => {
+                document.getElementById('tutorial-modal').classList.add('hidden');
+            });
+            btnTutorialOk.addEventListener('click', () => {
+                document.getElementById('tutorial-modal').classList.add('hidden');
+            });
+            
+            // Clear history
+            btnClearHistory.addEventListener('click', () => {
+                state.history = [];
+                updateHistoryChart();
+            });
+            
+            // Canvas Mouse Click (for manual placement)
+            canvas.addEventListener('mousedown', function(e) {
+                if (state.samplingMode !== 'manual') return;
+                
+                // Check if we already reached limit
+                if (state.placedQuadrats.length >= state.quadratCount) {
+                    showAlert("已放置足夠的樣區！若想重新放置，請調整樣區數量或重新生成棲地。");
+                    return;
+                }
+                
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // Convert to habitat meters (0 to 20)
+                const scale = FIELD_SIZE / CANVAS_DOM_SIZE;
+                const sizeMeters = Math.sqrt(state.quadratSize);
+                
+                // Center the quadrat around the click point
+                let qX = (mouseX * scale) - (sizeMeters / 2);
+                let qY = (mouseY * scale) - (sizeMeters / 2);
+                
+                // Clamp within habitat boundaries
+                qX = Math.max(0, Math.min(FIELD_SIZE - sizeMeters, qX));
+                qY = Math.max(0, Math.min(FIELD_SIZE - sizeMeters, qY));
+                
+                state.placedQuadrats.push({
+                    x: qX,
+                    y: qY,
+                    w: sizeMeters,
+                    h: sizeMeters
+                });
+                
+                updateManualToast();
+                draw();
+                
+                // Auto trigger calculation if they just placed the last one
+                if (state.placedQuadrats.length === state.quadratCount) {
+                    calculateSampling();
+                }
+            });
+        }
+
+        function selectOrganism(org) {
+            state.organism = org;
+            
+            // Reset active button styling
+            document.querySelectorAll('.org-opt').forEach(btn => {
+                btn.className = "org-opt border-2 border-slate-200 bg-white text-slate-600 py-2 px-1 rounded-xl flex flex-col items-center gap-1 transition-all hover:bg-slate-50";
+            });
+            
+            // Apply active styles to chosen one
+            const activeBtn = document.getElementById(`opt-${org}`);
+            activeBtn.className = "org-opt border-2 border-emerald-500 bg-emerald-50 text-slate-800 py-2 px-1 rounded-xl flex flex-col items-center gap-1 transition-all";
+            
+            // Update metadata unit texts
+            const config = SPECIES_CONFIG[org];
+            document.getElementById('unit-density').innerText = `${config.unit}/樣區`;
+            document.getElementById('unit-species-1').innerText = config.unit;
+            document.getElementById('legend-icon').innerText = config.icon;
+            document.getElementById('legend-name').innerText = config.name;
+            ecoTip.innerText = config.tip;
+            
+            // Sync slider label
+            labelTruePop.innerText = `${state.truePopulation} ${config.unit}`;
+            
+            generateHabitat();
+        }
+
+        function setSamplingMode(mode) {
+            state.samplingMode = mode;
+            state.placedQuadrats = [];
+            state.samplingResults = null;
+            resetResultUI();
+            
+            const btnAuto = document.getElementById('btn-mode-auto');
+            const btnManual = document.getElementById('btn-mode-manual');
+            
+            if (mode === 'auto') {
+                btnAuto.className = "border-2 border-emerald-500 bg-emerald-50 text-emerald-800 py-2 rounded-lg text-sm font-bold transition-all";
+                btnManual.className = "border-2 border-slate-200 bg-white text-slate-600 py-2 rounded-lg text-sm font-bold transition-all hover:bg-slate-50";
+                manualToast.classList.add('hidden');
+            } else {
+                btnManual.className = "border-2 border-emerald-500 bg-emerald-50 text-emerald-800 py-2 rounded-lg text-sm font-bold transition-all";
+                btnAuto.className = "border-2 border-slate-200 bg-white text-slate-600 py-2 rounded-lg text-sm font-bold transition-all hover:bg-slate-50";
+                updateManualToast();
+            }
+            draw();
+        }
+
+        function updateManualToast() {
+            if (state.samplingMode !== 'manual') return;
+            const remaining = state.quadratCount - state.placedQuadrats.length;
+            if (remaining > 0) {
+                manualToast.classList.remove('hidden');
+                manualRemainCount.innerText = remaining;
+            } else {
+                manualToast.classList.add('hidden');
+            }
+        }
+
+        function syncFormControls() {
+            paramTruePop.value = state.truePopulation;
+            const config = SPECIES_CONFIG[state.organism];
+            labelTruePop.innerText = `${state.truePopulation} ${config.unit}`;
+            selectDistribution.value = state.distribution;
+            selectQuadratSize.value = state.quadratSize;
+            paramQuadrats = state.quadratCount;
+            labelQuadratCount.innerText = `${state.quadratCount} 個`;
+            setSamplingMode(state.samplingMode);
+            selectOrganism(state.organism);
+        }
+
+        function showAlert(text) {
+            const banner = document.getElementById('alert-banner');
+            const alertText = document.getElementById('alert-text');
+            alertText.innerText = text;
+            banner.classList.remove('hidden');
+            
+            setTimeout(() => {
+                banner.classList.add('hidden');
+            }, 3500);
+        }
+
+        function resetResultUI() {
+            metricAvgCount.innerText = "--";
+            metricDensityM2.innerText = "相當於 -- 株/m²";
+            metricEstPop.innerText = "--";
+            metricTruePop.innerText = state.truePopulation;
+            metricErrorRate.innerText = "--";
+            metricErrorRate.className = "text-lg font-black text-slate-400";
+            formulaCalcStep.innerText = "(尚未進行採樣)";
+        }
+
+        function updateResultUI() {
+            if (!state.samplingResults) return;
+            
+            const res = state.samplingResults;
+            const config = SPECIES_CONFIG[state.organism];
+            
+            // 1. Average density count
+            metricAvgCount.innerText = res.avgCount.toFixed(2);
+            const densityPerM2 = res.avgCount / state.quadratSize;
+            metricDensityM2.innerText = `相當於 ${densityPerM2.toFixed(3)} ${config.unit} / m²`;
+            
+            // 2. Estimated Population
+            metricEstPop.innerText = res.estimatedPop;
+            
+            // 3. True Population & Error
+            metricTruePop.innerText = state.truePopulation;
+            const errorSign = res.errorRate >= 0 ? '+' : '';
+            metricErrorRate.innerText = `${errorSign}${res.errorRate.toFixed(1)}%`;
+            
+            // Style Error Rate based on accuracy
+            const absErr = Math.abs(res.errorRate);
+            if (absErr <= 5) {
+                metricErrorRate.className = "text-lg font-black text-emerald-600"; // Excellent!
+            } else if (absErr <= 15) {
+                metricErrorRate.className = "text-lg font-black text-amber-600"; // Good
+            } else {
+                metricErrorRate.className = "text-lg font-black text-rose-600"; // High error
+            }
+
+            // 4. Detailed Calculation Formula
+            // Formula: Est = Avg * (Total / Size)
+            const areaMultiplier = (FIELD_SIZE * FIELD_SIZE) / state.quadratSize;
+            formulaCalcStep.innerHTML = `
+                估算 = ${res.avgCount.toFixed(2)} × (400 m² / ${state.quadratSize} m²)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp; = ${res.avgCount.toFixed(2)} × ${areaMultiplier}<br>
+                &nbsp;&nbsp;&nbsp;&nbsp; = <strong>${res.estimatedPop}</strong> ${config.unit}
+            `;
+        }
+
+        // --- DRAWING GRAPHICS ON CANVAS ---
+        function draw() {
+            // Clear canvas
+            ctx.clearRect(0, 0, CANVAS_DOM_SIZE, CANVAS_DOM_SIZE);
+            
+            // Scale conversion factor
+            const mToPx = CANVAS_DOM_SIZE / FIELD_SIZE;
+            
+            // 1. Draw green grassland background with organic subtle grid/shades
+            ctx.fillStyle = "#14532d"; // Emerald 900
+            ctx.fillRect(0, 0, CANVAS_DOM_SIZE, CANVAS_DOM_SIZE);
+            
+            // Draw field sub-grid (1m x 1m lines) for visual depth
+            ctx.strokeStyle = "rgba(16, 185, 129, 0.05)"; // very faint green
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= FIELD_SIZE; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * mToPx, 0);
+                ctx.lineTo(i * mToPx, CANVAS_DOM_SIZE);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, i * mToPx);
+                ctx.lineTo(CANVAS_DOM_SIZE, i * mToPx);
+                ctx.stroke();
+            }
+
+            // Draw a subtle 5m grid
+            ctx.strokeStyle = "rgba(16, 185, 129, 0.15)";
+            ctx.lineWidth = 1.5;
+            for (let i = 0; i <= FIELD_SIZE; i += 5) {
+                ctx.beginPath();
+                ctx.moveTo(i * mToPx, 0);
+                ctx.lineTo(i * mToPx, CANVAS_DOM_SIZE);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, i * mToPx);
+                ctx.lineTo(CANVAS_DOM_SIZE, i * mToPx);
+                ctx.stroke();
+            }
+
+            // 2. Draw Organisms (True Population)
+            const species = SPECIES_CONFIG[state.organism];
+            
+            state.organisms.forEach(org => {
+                // Determine if this organism is inside ANY placed quadrat
+                let isInsideAnyQuadrat = false;
+                state.placedQuadrats.forEach(quadrat => {
+                    if (org.x >= quadrat.x && org.x <= quadrat.x + quadrat.w &&
+                        org.y >= quadrat.y && org.y <= quadrat.y + quadrat.h) {
+                        isInsideAnyQuadrat = true;
+                    }
+                });
+
+                // Render condition: if showTruePopulation is true, always render.
+                // Otherwise (blind study), only render if captured inside a quadrat.
+                if (state.showTruePopulation || isInsideAnyQuadrat) {
+                    const px = org.x * mToPx;
+                    const py = org.y * mToPx;
+                    
+                    // Main point / flower style
+                    ctx.save();
+                    if (isInsideAnyQuadrat) {
+                        // Highlighted / Detected state
+                        ctx.shadowBlur = 4;
+                        ctx.shadowColor = "#ffffff";
+                        
+                        // Draw outer highlight circle
+                        ctx.beginPath();
+                        ctx.arc(px, py, 5, 0, Math.PI * 2);
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                        ctx.fill();
+                        
+                        // Draw inner species core
+                        ctx.beginPath();
+                        ctx.arc(px, py, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = species.color;
+                        ctx.fill();
+                    } else {
+                        // Hidden study but shown on screen (Semi-transparent/Standard)
+                        ctx.beginPath();
+                        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+                        ctx.fillStyle = species.color;
+                        ctx.globalAlpha = state.showTruePopulation ? 0.65 : 0; // Completely invisible if hidden and outside quadrat
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            });
+
+            // 3. Draw Placed Quadrats (黃色方框)
+            state.placedQuadrats.forEach((quadrat, index) => {
+                const qx = quadrat.x * mToPx;
+                const qy = quadrat.y * mToPx;
+                const qw = quadrat.w * mToPx;
+                const qh = quadrat.h * mToPx;
+                
+                // Neon-like quadrat styling
+                ctx.save();
+                
+                // Fill quadrat with transparent yellow
+                ctx.fillStyle = "rgba(251, 191, 36, 0.12)";
+                ctx.fillRect(qx, qy, qw, qh);
+                
+                // Border glow
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = "#f59e0b";
+                ctx.strokeStyle = "#fbbf24"; // Bright amber-yellow
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(qx, qy, qw, qh);
+                
+                // Inner dashed thin border for professional styling
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 3]);
+                ctx.strokeRect(qx, qy, qw, qh);
+                
+                // Label with quadrat index
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 10px sans-serif";
+                ctx.textBaseline = "top";
+                
+                // Mini dark ribbon for label readability
+                const labelText = `樣區 Q${index + 1}`;
+                const textWidth = ctx.measureText(labelText).width;
+                ctx.fillStyle = "rgba(30, 41, 59, 0.85)";
+                ctx.fillRect(qx, qy, textWidth + 8, 16);
+                
+                ctx.fillStyle = "#fbbf24";
+                ctx.fillText(labelText, qx + 4, qy + 3);
+                
+                ctx.restore();
+            });
+        }
+
+        // --- HISTORY CHART LOGIC (Chart.js) ---
+        function initChart() {
+            const chartCtx = document.getElementById('history-chart').getContext('2d');
+            
+            // Build simple initial layout for zero state
+            historyChart = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '估算誤差率 (%)',
+                        data: [],
+                        borderColor: '#059669', // Emerald 600
+                        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#d97706', // Amber 600
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            // Focus on showing error drift around 0%
+                            suggestedMin: -30,
+                            suggestedMax: 30,
+                            title: {
+                                display: true,
+                                text: '誤差值 (%)',
+                                font: { size: 9 }
+                            },
+                            grid: {
+                                color: function(context) {
+                                    if (context.tick.value === 0) {
+                                        return 'rgba(239, 68, 68, 0.6)'; // Red bold line for 0% perfect mark
+                                    }
+                                    return 'rgba(0, 0, 0, 0.05)';
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '實驗序號',
+                                font: { size: 9 }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false // Save screen real estate
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` 誤差率: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function saveToHistory() {
+            if (!state.samplingResults) return;
+            
+            const res = state.samplingResults;
+            const runId = state.history.length + 1;
+            
+            state.history.push({
+                runId: runId,
+                quadratSize: state.quadratSize,
+                quadratCount: state.placedQuadrats.length,
+                estimated: res.estimatedPop,
+                truePop: state.truePopulation,
+                error: res.errorRate,
+                distribution: state.distribution
+            });
+            
+            // Cap history to 15 items to avoid chart overflow
+            if (state.history.length > 15) {
+                state.history.shift();
+            }
+            
+            updateHistoryChart();
+        }
+
+        function updateHistoryChart() {
+            if (!historyChart) return;
+            
+            const labels = state.history.map(item => `#${item.runId} (${item.quadratCount}樣區)`);
+            const data = state.history.map(item => item.error);
+            
+            historyChart.data.labels = labels;
+            historyChart.data.datasets[0].data = data;
+            
+            // Dynamically change dot colors if they performed terrible vs amazing
+            const pointColors = state.history.map(item => {
+                const absErr = Math.abs(item.error);
+                if (absErr <= 5) return '#10b981'; // green
+                if (absErr <= 15) return '#f59e0b'; // orange
+                return '#ef4444'; // red
+            });
+            historyChart.data.datasets[0].pointBackgroundColor = pointColors;
+            
+            historyChart.update();
+        }
+    </script>
+</body>
+</html>
