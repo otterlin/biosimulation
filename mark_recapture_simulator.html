@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抓放法多輪採樣模擬器 (進階教學版)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- KaTeX for beautiful math formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <!-- Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+        }
+        canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
+
+    <div class="max-w-7xl mx-auto p-3 md:p-6 lg:p-8">
+        <!-- 頂部導航與標題 -->
+        <header class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
+            <div class="flex items-center gap-4">
+                <span class="bg-gradient-to-tr from-blue-600 to-sky-500 text-white p-3 rounded-2xl shadow-md shadow-blue-500/20">
+                    <i data-lucide="waves" class="w-8 h-8"></i>
+                </span>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-black text-slate-900 flex items-center gap-2">
+                        抓放法多輪採樣模擬器
+                        <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">教育學術版 v2.0</span>
+                    </h1>
+                    <p class="text-slate-500 text-sm mt-0.5 font-medium">進行隨機抽樣，觀察大數法則下平均估計值的收斂與誤差變化</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-50/80 px-4 py-2 rounded-2xl border border-blue-100 text-center min-w-[110px]">
+                    <span class="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">真實總數 N</span>
+                    <span id="display-real-n" class="text-2xl font-black text-blue-600">500</span>
+                </div>
+                <!-- 音效控制 -->
+                <button id="btn-toggle-sound" class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl transition-all" title="切換音效">
+                    <i data-lucide="volume-2" id="sound-icon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- 左側：參數調整與控制欄 (4 cols) -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- 模擬參數調校面板 -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80">
+                    <h2 class="font-bold text-slate-800 text-lg mb-5 flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-5 h-5 text-blue-500"></i>
+                        模擬參數調校
+                    </h2>
+                    
+                    <div class="space-y-6">
+                        <!-- 真實總數 N -->
+                        <div>
+                            <div class="flex justify-between text-xs font-bold mb-2">
+                                <span class="text-slate-500 flex items-center gap-1">
+                                    真實群體總數 (N)
+                                    <i data-lucide="help-circle" class="w-3.5 h-3.5 text-slate-400 cursor-pointer" title="池塘中實際擁有的魚隻總數（估計目標）"></i>
+                                </span>
+                                <span id="ui-n" class="text-blue-600 font-mono text-sm bg-blue-50 px-2 py-0.5 rounded-md">500</span>
+                            </div>
+                            <input type="range" id="in-n" min="100" max="1000" step="50" value="500" class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <!-- 標記數量 M -->
+                        <div>
+                            <div class="flex justify-between text-xs font-bold mb-2">
+                                <span class="text-slate-500 flex items-center gap-1">
+                                    首輪標記數量 (M)
+                                    <i data-lucide="help-circle" class="w-3.5 h-3.5 text-slate-400 cursor-pointer" title="第一階段抓出並做上標記放回的個體數"></i>
+                                </span>
+                                <span id="ui-m" class="text-orange-600 font-mono text-sm bg-orange-50 px-2 py-0.5 rounded-md">100</span>
+                            </div>
+                            <input type="range" id="in-m" min="10" max="400" step="5" value="100" class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-orange-500">
+                        </div>
+
+                        <!-- 單次抓取數量 n -->
+                        <div>
+                            <div class="flex justify-between text-xs font-bold mb-2">
+                                <span class="text-slate-500 flex items-center gap-1">
+                                    後續抓取數量 (n)
+                                    <i data-lucide="help-circle" class="w-3.5 h-3.5 text-slate-400 cursor-pointer" title="第二階段重新撒網撈起的隨機樣本數"></i>
+                                </span>
+                                <span id="ui-sample" class="text-emerald-600 font-mono text-sm bg-emerald-50 px-2 py-0.5 rounded-md">80</span>
+                            </div>
+                            <input type="range" id="in-sample" min="10" max="400" step="5" value="80" class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                        </div>
+                    </div>
+
+                    <!-- 估計公式選擇 -->
+                    <div class="mt-6 pt-5 border-t border-slate-100">
+                        <label class="block text-xs font-bold text-slate-500 mb-2">估計公式類型</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="flex flex-col items-center justify-between p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-all select-none">
+                                <input type="radio" name="formula-type" value="lincoln" checked class="sr-only">
+                                <span class="text-xs font-bold text-slate-700">林肯-彼得森式</span>
+                                <span class="text-[9px] text-slate-400 mt-1">$\hat{N} = \frac{M \cdot n}{m}$</span>
+                            </label>
+                            <label class="flex flex-col items-center justify-between p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-all select-none">
+                                <input type="radio" name="formula-type" value="chapman" class="sr-only">
+                                <span class="text-xs font-bold text-slate-700">柴普曼修正公式</span>
+                                <span class="text-[9px] text-slate-400 mt-1">$\hat{N}_C = \frac{(M+1)(n+1)}{m+1}-1$</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 操作按鈕群 -->
+                    <div class="mt-6 space-y-2">
+                        <button id="btn-do-mark" class="w-full py-3.5 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white rounded-2xl font-bold shadow-md shadow-orange-500/10 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="tag" class="w-4 h-4"></i>
+                            1. 重新標記 (M 隻)
+                        </button>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="btn-do-sample" disabled class="py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold shadow-md transition-all active:scale-[0.98] opacity-50 cursor-not-allowed flex items-center justify-center gap-1">
+                                <i data-lucide="anchor" class="w-4 h-4"></i>
+                                單次抓取 (n 隻)
+                            </button>
+                            <button id="btn-auto-10" disabled class="py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-md transition-all active:scale-[0.98] opacity-50 cursor-not-allowed flex items-center justify-center gap-1">
+                                <i data-lucide="play-circle" class="w-4 h-4"></i>
+                                自動跑 10 輪
+                            </button>
+                        </div>
+                        
+                        <button id="btn-auto-50" disabled class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm shadow-md transition-all active:scale-[0.98] opacity-50 cursor-not-allowed flex items-center justify-center gap-1">
+                            <i data-lucide="fast-forward" class="w-4 h-4"></i>
+                            極速模擬 50 輪 (統計收斂)
+                        </button>
+
+                        <button id="btn-clear-history" class="w-full py-2 text-slate-400 hover:text-rose-500 text-sm font-bold transition-colors flex items-center justify-center gap-1">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            清空採樣數據
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 統計資訊板 -->
+                <div class="bg-slate-900 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
+                        <i data-lucide="line-chart" class="w-4 h-4 text-sky-400"></i>
+                        多輪累計統計
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white/5 p-3.5 rounded-2xl border border-white/5">
+                            <p class="text-[10px] text-slate-400">累計抓取輪數</p>
+                            <p id="stat-count" class="text-2xl font-mono font-bold text-slate-200 mt-1">0</p>
+                        </div>
+                        <div class="bg-white/5 p-3.5 rounded-2xl border border-white/5">
+                            <p class="text-[10px] text-slate-400">當前標記狀態</p>
+                            <p id="stat-status-badge" class="text-xs font-bold text-orange-400 mt-2 flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-orange-400 animate-ping"></span>
+                                未標記
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-4">
+                        <div class="bg-gradient-to-r from-blue-950/40 to-slate-950/40 p-4 rounded-2xl border border-white/10">
+                            <p class="text-[11px] text-slate-400 flex items-center justify-between">
+                                <span>累計平均估計值 $\bar{N}$</span>
+                                <span class="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono">所有有效估計平均</span>
+                            </p>
+                            <p id="stat-avg-n" class="text-3xl font-mono font-black text-blue-400 mt-1">--</p>
+                        </div>
+                        
+                        <div id="stat-error-box" class="hidden bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="text-[10px] text-slate-400">當前平均誤差率</p>
+                                    <p id="stat-avg-err" class="text-2xl font-mono font-bold text-emerald-400 mt-1">--</p>
+                                </div>
+                                <div id="stat-precision-gauge" class="h-10 w-10 rounded-full border-4 border-emerald-500/20 flex items-center justify-center text-[10px] font-bold text-emerald-400">
+                                    --
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中間：動態生態池與即時估算 (5 cols) -->
+            <div class="lg:col-span-5 space-y-6">
+                <!-- 池塘 Canvas 容器 -->
+                <div class="bg-white p-3 rounded-3xl shadow-sm border border-slate-200/80 relative overflow-hidden group">
+                    <div class="absolute top-4 left-4 z-10 flex gap-2">
+                        <span class="bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-extrabold text-blue-600 border border-blue-100 shadow-sm flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                            動態魚池生態系
+                        </span>
+                        <span id="canvas-fish-count" class="bg-slate-900/95 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-extrabold text-white shadow-sm">
+                            -- 隻
+                        </span>
+                    </div>
+
+                    <!-- 生態水池 Canvas -->
+                    <div class="w-full aspect-video bg-sky-50 rounded-2xl overflow-hidden relative border border-sky-100/50">
+                        <canvas id="pond-canvas" class="w-full h-full block cursor-pointer"></canvas>
+                        
+                        <!-- 網撈動畫遮罩 -->
+                        <div id="loading-overlay" class="absolute inset-0 bg-sky-900/10 backdrop-blur-[1px] z-30 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+                            <div class="flex flex-col items-center gap-2 bg-white/95 backdrop-blur px-6 py-4 rounded-2xl shadow-xl border border-blue-50/50">
+                                <div class="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                                <span class="font-bold text-xs text-slate-700 tracking-wider">正在拉網採樣...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 單次收網結果面板 -->
+                <div id="last-result-card" class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm hidden flex items-center justify-between transition-all duration-300">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-orange-50 text-orange-600 p-3 rounded-2xl border border-orange-100">
+                            <i data-lucide="tag" class="w-6 height-6"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">本次捕獲標記數 (m)</span>
+                            <span id="last-m" class="text-3xl font-black text-orange-500">0</span>
+                        </div>
+                    </div>
+                    <div class="text-right flex items-center gap-3 flex-row-reverse">
+                        <div class="bg-slate-50 text-slate-600 p-3 rounded-2xl border border-slate-100">
+                            <i data-lucide="calculator" class="w-6 height-6"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">單次公式估計值 ($\hat{N}$)</span>
+                            <span id="last-est" class="text-3xl font-black text-slate-800">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 理論解析面板 -->
+                <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
+                    <h4 class="font-bold text-slate-800 text-sm mb-3 flex items-center gap-1">
+                        <i data-lucide="book-open" class="w-4 h-4 text-blue-500"></i>
+                        科學原理提示
+                    </h4>
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        根據<b>比例原理</b>，群體中的標記比例應等於樣本中的標記比例：
+                        <span class="block my-2 text-center text-sm font-mono text-slate-800 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            $$\frac{M}{N} \approx \frac{m}{n} \implies N \approx \frac{M \cdot n}{m}$$
+                        </span>
+                        當 $m = 0$（樣本中無標記個體）時，經典公式會因分母為 $0$ 而失效。<b>柴普曼修正法 (Chapman)</b> 透過分母 $+1$ 修正此問題，在小樣本統計中更具穩定性。
+                    </p>
+                </div>
+            </div>
+
+            <!-- 右側：歷史數據與即時收斂圖 (3 cols) -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- 折線趨勢圖 -->
+                <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200/80">
+                    <h3 class="font-bold text-slate-700 text-sm mb-3 flex items-center justify-between">
+                        <span class="flex items-center gap-1">
+                            <i data-lucide="line-chart" class="w-4 h-4 text-blue-500"></i>
+                            收斂趨勢分析
+                        </span>
+                        <span class="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">大數法則</span>
+                    </h3>
+                    <div class="w-full h-44 relative">
+                        <canvas id="convergenceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 歷史數據紀錄 -->
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-200/80 flex flex-col overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h3 class="font-bold text-slate-700 text-sm flex items-center gap-1.5">
+                            <i data-lucide="history" class="w-4 h-4 text-slate-400"></i>
+                            採樣數據日誌
+                        </h3>
+                        <span id="history-badge" class="bg-slate-200 text-slate-600 text-[10px] px-2.5 py-0.5 rounded-full font-bold">0 筆</span>
+                    </div>
+                    <div id="history-list" class="flex-1 overflow-y-auto p-4 space-y-2.5 custom-scrollbar h-[225px]">
+                        <!-- 預設無紀錄 -->
+                        <div class="text-center py-12 text-slate-400">
+                            <i data-lucide="scroll" class="w-8 h-8 mx-auto stroke-1 opacity-40 mb-2"></i>
+                            <p class="text-xs">尚無採樣紀錄</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頁底 -->
+    <footer class="mt-12 text-center text-xs text-slate-400 pb-12">
+        <p>© 2026 抓放法教學模擬系統. 保留所有教學權利。</p>
+    </footer>
+
+    <!-- 主要運算邏輯與特效 -->
+    <script>
+        // --- 核心變數與常數 ---
+        let fishArray = [];
+        let samplingHistory = [];
+        let simulationState = 'setup'; // 'setup' | 'marked'
+        let selectedFormula = 'lincoln'; // 'lincoln' | 'chapman'
+        let soundEnabled = true;
+
+        // --- Web Audio API 聲音合成器 ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSynthSound(type) {
+            if (!soundEnabled) return;
+            try {
+                // 恢復被瀏覽器政策阻擋的 AudioContext
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'mark') {
+                    // 標記聲：雙音階輕快和弦 (Ding-ding!)
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'sample') {
+                    // 灑網拉起聲：水花氣泡音
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                } else if (type === 'reset') {
+                    // 清空聲：清脆下行音
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(520, now);
+                    osc.frequency.linearRampToValueAtTime(260, now + 0.2);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'click') {
+                    // 按鈕微滴聲
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, now);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                }
+            } catch (err) {
+                console.warn('音效播放失敗:', err);
+            }
+        }
+
+        // --- DOM 元素獲取 ---
+        const canvas = document.getElementById('pond-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const inN = document.getElementById('in-n');
+        const inM = document.getElementById('in-m');
+        const inSample = document.getElementById('in-sample');
+        
+        const uiN = document.getElementById('ui-n');
+        const uiM = document.getElementById('ui-m');
+        const uiSample = document.getElementById('ui-sample');
+        const displayRealN = document.getElementById('display-real-n');
+        const canvasFishCount = document.getElementById('canvas-fish-count');
+
+        const btnMark = document.getElementById('btn-do-mark');
+        const btnSample = document.getElementById('btn-do-sample');
+        const btnAuto10 = document.getElementById('btn-auto-10');
+        const btnAuto50 = document.getElementById('btn-auto-50');
+        const btnClear = document.getElementById('btn-clear-history');
+        const btnToggleSound = document.getElementById('btn-toggle-sound');
+        const soundIcon = document.getElementById('sound-icon');
+
+        const historyList = document.getElementById('history-list');
+        const historyBadge = document.getElementById('history-badge');
+        
+        const lastResultCard = document.getElementById('last-result-card');
+        const lastM = document.getElementById('last-m');
+        const lastEst = document.getElementById('last-est');
+        
+        const statCount = document.getElementById('stat-count');
+        const statStatusBadge = document.getElementById('stat-status-badge');
+        const statAvgN = document.getElementById('stat-avg-n');
+        const statAvgErr = document.getElementById('stat-avg-err');
+        const statErrorBox = document.getElementById('stat-error-box');
+        const statPrecisionGauge = document.getElementById('stat-precision-gauge');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        // --- Chart.js 折線圖配置 ---
+        let chartInstance = null;
+        function initChart() {
+            const chartCtx = document.getElementById('convergenceChart').getContext('2d');
+            chartInstance = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '累計平均值 \bar{N}',
+                            data: [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                            borderWidth: 2.5,
+                            fill: true,
+                            tension: 0.15,
+                            pointRadius: 2,
+                            pointHoverRadius: 4
+                        },
+                        {
+                            label: '真實總數 N',
+                            data: [],
+                            borderColor: '#ef4444',
+                            borderWidth: 1.5,
+                            borderDash: [5, 4],
+                            fill: false,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 9 }, color: '#94a3b8' },
+                            title: { display: true, text: '採樣輪數', font: { size: 9 }, color: '#94a3b8' }
+                        },
+                        y: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: { font: { size: 9, family: 'monospace' }, color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartData() {
+            if (!chartInstance) return;
+            
+            const validHistory = samplingHistory.filter(h => h.est !== null).reverse();
+            const labels = [];
+            const avgData = [];
+            const realData = [];
+            const realN = parseInt(inN.value);
+
+            let cumulativeSum = 0;
+            validHistory.forEach((item, index) => {
+                labels.push(`${index + 1}`);
+                cumulativeSum += item.est;
+                avgData.push(Math.round(cumulativeSum / (index + 1)));
+                realData.push(realN);
+            });
+
+            chartInstance.data.labels = labels;
+            chartInstance.data.datasets[0].data = avgData;
+            chartInstance.data.datasets[1].data = realData;
+            chartInstance.update();
+        }
+
+        // --- Canvas 魚物理引擎與繪製 ---
+        class Fish {
+            constructor(id, canvasWidth, canvasHeight) {
+                this.id = id;
+                this.x = Math.random() * canvasWidth;
+                this.y = Math.random() * canvasHeight;
+                this.vx = (Math.random() - 0.5) * 1.2;
+                this.vy = (Math.random() - 0.5) * 1.2;
+                this.angle = Math.atan2(this.vy, this.vx);
+                this.isMarked = false;
+                this.isSampled = false;
+                this.size = 11 + Math.random() * 4;
+                this.wiggleSpeed = 0.08 + Math.random() * 0.08;
+                this.wigglePhase = Math.random() * Math.PI * 2;
+                
+                // 魚在水中的慣性與目標轉向
+                this.targetAngle = this.angle;
+                this.turnTimer = Math.random() * 100;
+            }
+
+            update(width, height) {
+                // 定期隨機轉向
+                this.turnTimer--;
+                if (this.turnTimer <= 0) {
+                    this.targetAngle = Math.random() * Math.PI * 2;
+                    this.turnTimer = 150 + Math.random() * 200;
+                    // 微調前進速度
+                    const speed = 0.5 + Math.random() * 0.8;
+                    this.vx = Math.cos(this.angle) * speed;
+                    this.vy = Math.sin(this.angle) * speed;
+                }
+
+                // 朝向目標轉向
+                let angleDiff = this.targetAngle - this.angle;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                this.angle += angleDiff * 0.02;
+
+                // 自然搖尾
+                this.wigglePhase += this.wiggleSpeed;
+
+                // 移動位置
+                this.x += Math.cos(this.angle) * Math.hypot(this.vx, this.vy);
+                this.y += Math.sin(this.angle) * Math.hypot(this.vx, this.vy);
+
+                // 邊界碰撞緩解與反彈
+                const pad = 20;
+                if (this.x < pad) { this.x = pad; this.targetAngle = 0; }
+                if (this.x > width - pad) { this.x = width - pad; this.targetAngle = Math.PI; }
+                if (this.y < pad) { this.y = pad; this.targetAngle = Math.PI/2; }
+                if (this.y > height - pad) { this.y = height - pad; this.targetAngle = -Math.PI/2; }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // 若被選中，繪製綠色半透明發光呼吸圈
+                if (this.isSampled) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size * 1.4, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+                    ctx.strokeStyle = '#10b981';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.fill();
+                }
+
+                const tailWiggle = Math.sin(this.wigglePhase) * 0.35;
+
+                // 繪製尾鰭
+                ctx.beginPath();
+                ctx.moveTo(-this.size * 0.6, 0);
+                ctx.quadraticCurveTo(
+                    -this.size * 1.1 + Math.cos(tailWiggle)*2, 
+                    -this.size * 0.4 + tailWiggle * 5, 
+                    -this.size * 1.2, 
+                    -this.size * 0.5 + tailWiggle * 6
+                );
+                ctx.lineTo(-this.size * 1.1, tailWiggle * 3);
+                ctx.lineTo(
+                    -this.size * 1.2, 
+                    this.size * 0.5 + tailWiggle * 6
+                );
+                ctx.quadraticCurveTo(
+                    -this.size * 0.6 + Math.cos(tailWiggle)*2, 
+                    this.size * 0.4 + tailWiggle * 5, 
+                    -this.size * 0.6, 
+                    0
+                );
+                ctx.fillStyle = this.isMarked ? '#f97316' : '#94a3b8';
+                ctx.fill();
+
+                // 繪製魚身體 (紡錘形)
+                ctx.beginPath();
+                ctx.moveTo(this.size * 0.9, 0);
+                ctx.quadraticCurveTo(this.size * 0.3, -this.size * 0.5, -this.size * 0.6, 0);
+                ctx.quadraticCurveTo(this.size * 0.3, this.size * 0.5, this.size * 0.9, 0);
+                
+                // 色澤與標記
+                if (this.isMarked) {
+                    // 標記魚為飽滿橘色
+                    ctx.fillStyle = '#ea580c';
+                } else {
+                    // 普通魚為銀灰色漸層
+                    const grad = ctx.createLinearGradient(-this.size*0.5, 0, this.size*0.8, 0);
+                    grad.addColorStop(0, '#cbd5e1');
+                    grad.addColorStop(1, '#94a3b8');
+                    ctx.fillStyle = grad;
+                }
+                ctx.fill();
+
+                // 魚眼
+                ctx.beginPath();
+                ctx.arc(this.size * 0.5, -this.size * 0.15, 1.8, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.size * 0.5, -this.size * 0.15, 0.9, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f172a';
+                ctx.fill();
+
+                // 鰓蓋線
+                ctx.beginPath();
+                ctx.arc(this.size * 0.25, 0, this.size * 0.25, -Math.PI/3, Math.PI/3);
+                ctx.strokeStyle = this.isMarked ? '#f97316' : '#cbd5e1';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        // --- 模擬器主邏輯引擎 ---
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            // 在視網膜或高解析度螢幕做 2x 適配
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        function initPond() {
+            resizeCanvas();
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            fishArray = [];
+            samplingHistory = [];
+            simulationState = 'setup';
+            
+            const count = parseInt(inN.value);
+            displayRealN.textContent = count;
+            canvasFishCount.textContent = `${count} 隻`;
+
+            for (let i = 0; i < count; i++) {
+                fishArray.push(new Fish(i, width, height));
+            }
+
+            lastResultCard.classList.add('hidden');
+            updateUI();
+            updateStats();
+            renderHistory();
+            updateChartData();
+        }
+
+        // 生態動畫渲染循環
+        function animationLoop() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            
+            // 清理畫布 (背景漸層水面效果)
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+            skyGrad.addColorStop(0, '#f0f9ff'); // 淺天空藍
+            skyGrad.addColorStop(1, '#e0f2fe'); // 深湖面藍
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // 繪製優美水波微光 (漣漪效果)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            const time = Date.now() * 0.001;
+            for (let i = 40; i < width; i += 120) {
+                const waveY = 30 + Math.sin(time + i) * 8;
+                ctx.arc(i, waveY, 15, 0, Math.PI, true);
+            }
+            ctx.stroke();
+
+            // 更新並繪製所有個體
+            fishArray.forEach(fish => {
+                fish.update(width, height);
+                fish.draw(ctx);
+            });
+
+            requestAnimationFrame(animationLoop);
+        }
+
+        // --- 標記操作 (第一輪) ---
+        function markFish() {
+            playSynthSound('mark');
+            const M = parseInt(inM.value);
+            samplingHistory = []; // 清除舊有的採樣數據
+
+            // 隨機選 M 隻進行標記
+            const shuffled = [...fishArray].sort(() => 0.5 - Math.random());
+            const selectedIds = shuffled.slice(0, M).map(f => f.id);
+
+            fishArray.forEach(f => {
+                f.isMarked = selectedIds.includes(f.id);
+                f.isSampled = false; // 清除之前的選中狀態
+            });
+
+            simulationState = 'marked';
+            lastResultCard.classList.add('hidden');
+            
+            updateUI();
+            updateStats();
+            renderHistory();
+            updateChartData();
+        }
+
+        // --- 單次採樣核心運算 (第二輪) ---
+        async function sampleFish(animate = true) {
+            if (simulationState !== 'marked') return;
+            
+            const n = parseInt(inSample.value);
+            const M = parseInt(inM.value);
+            const realN = fishArray.length;
+
+            if (animate) {
+                playSynthSound('sample');
+                loadingOverlay.classList.remove('hidden');
+                loadingOverlay.classList.add('opacity-100');
+                // 模擬拉網等待延遲
+                await new Promise(r => setTimeout(r, 600));
+                loadingOverlay.classList.remove('opacity-100');
+                loadingOverlay.classList.add('hidden');
+            }
+
+            // 隨機採樣
+            const shuffled = [...fishArray].sort(() => 0.5 - Math.random());
+            const sampleGroup = shuffled.slice(0, n);
+            const sampleIds = sampleGroup.map(f => f.id);
+
+            let m = 0;
+            fishArray.forEach(f => {
+                f.isSampled = sampleIds.includes(f.id);
+                if (f.isSampled && f.isMarked) {
+                    m++;
+                }
+            });
+
+            // 計算估算值
+            let estimate = null;
+            if (selectedFormula === 'lincoln') {
+                // 林肯彼得森公式
+                estimate = m > 0 ? Math.round((M * n) / m) : null;
+            } else {
+                // 柴普曼公式修正
+                estimate = Math.round(((M + 1) * (n + 1)) / (m + 1)) - 1;
+            }
+
+            // 壓入歷史紀錄 (頂部為最新)
+            samplingHistory.unshift({
+                id: samplingHistory.length + 1,
+                m: m,
+                n: n,
+                est: estimate,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            });
+
+            // 更新結果卡片
+            lastResultCard.classList.remove('hidden');
+            lastM.textContent = m;
+            
+            if (estimate !== null) {
+                lastEst.textContent = estimate;
+                lastEst.className = "text-3xl font-black text-slate-800";
+            } else {
+                lastEst.textContent = "無法估計 (m=0)";
+                lastEst.className = "text-lg font-bold text-rose-500";
+            }
+
+            updateStats();
+            renderHistory();
+            updateChartData();
+        }
+
+        // --- 自動模擬 (多輪跑) ---
+        async function runAutoSimulation(rounds) {
+            playSynthSound('sample');
+            loadingOverlay.classList.remove('hidden');
+            loadingOverlay.classList.add('opacity-100');
+
+            // 關閉中間動畫避免高頻繪製卡頓
+            for (let i = 0; i < rounds; i++) {
+                await sampleFish(false); // 不渲染單次收網動畫
+                if (rounds <= 10) {
+                    await new Promise(r => setTimeout(r, 40)); // 稍作微小延時呈現數據跳動
+                }
+            }
+
+            loadingOverlay.classList.remove('opacity-100');
+            loadingOverlay.classList.add('hidden');
+            playSynthSound('mark');
+        }
+
+        // --- 更新統計數字 ---
+        function updateStats() {
+            const validHistory = samplingHistory.filter(h => h.est !== null);
+            const count = samplingHistory.length;
+            
+            statCount.textContent = count;
+            
+            // 標記狀態標章
+            if (simulationState === 'setup') {
+                statStatusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-400"></span> 未標記`;
+                statStatusBadge.className = "text-xs font-bold text-slate-400 mt-2 flex items-center gap-1.5";
+            } else {
+                statStatusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-orange-500 animate-ping"></span> 已標記 ${inM.value} 隻`;
+                statStatusBadge.className = "text-xs font-bold text-orange-400 mt-2 flex items-center gap-1.5";
+            }
+
+            if (validHistory.length > 0) {
+                const sum = validHistory.reduce((acc, curr) => acc + curr.est, 0);
+                const avg = Math.round(sum / validHistory.length);
+                statAvgN.textContent = `${avg} 隻`;
+                
+                // 計算與真實 population 誤差
+                const realN = parseInt(inN.value);
+                const err = Math.round(Math.abs(avg - realN) / realN * 100);
+                statAvgErr.textContent = err + "%";
+                
+                // 準確度圓圈指標
+                const accuracy = Math.max(0, 100 - err);
+                statPrecisionGauge.textContent = accuracy + "%";
+                
+                if (accuracy >= 95) {
+                    statPrecisionGauge.className = "h-11 w-11 rounded-full border-4 border-emerald-500 flex items-center justify-center text-[10px] font-black text-emerald-500 bg-emerald-500/5";
+                    statAvgErr.className = "text-2xl font-mono font-bold text-emerald-400 mt-1";
+                } else if (accuracy >= 85) {
+                    statPrecisionGauge.className = "h-11 w-11 rounded-full border-4 border-sky-400 flex items-center justify-center text-[10px] font-black text-sky-400 bg-sky-400/5";
+                    statAvgErr.className = "text-2xl font-mono font-bold text-sky-400 mt-1";
+                } else {
+                    statPrecisionGauge.className = "h-11 w-11 rounded-full border-4 border-amber-500 flex items-center justify-center text-[10px] font-black text-amber-500 bg-amber-500/5";
+                    statAvgErr.className = "text-2xl font-mono font-bold text-amber-400 mt-1";
+                }
+
+                statErrorBox.classList.remove('hidden');
+            } else {
+                statAvgN.textContent = "--";
+                statErrorBox.classList.add('hidden');
+            }
+        }
+
+        // --- 渲染歷史記錄 ---
+        function renderHistory() {
+            historyBadge.textContent = `${samplingHistory.length} 筆`;
+            
+            if (samplingHistory.length === 0) {
+                historyList.innerHTML = `
+                    <div class="text-center py-12 text-slate-400">
+                        <i data-lucide="scroll" class="w-8 h-8 mx-auto stroke-1 opacity-40 mb-2"></i>
+                        <p class="text-xs">尚無採樣紀錄</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            historyList.innerHTML = samplingHistory.map(item => {
+                const isFail = item.est === null;
+                const formulaBadge = selectedFormula === 'lincoln' ? '林肯' : '柴普曼';
+                return `
+                    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200/50 flex flex-col gap-1 transition-all hover:bg-slate-100/70">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-bold text-slate-400">採樣紀錄 #${item.id} (${formulaBadge})</span>
+                            <span class="text-[9px] text-slate-400 font-mono">${item.time}</span>
+                        </div>
+                        <div class="flex justify-between items-end">
+                            <div class="text-xs">
+                                <span class="text-slate-500">撈起標記 m:</span>
+                                <span class="font-extrabold text-orange-600 font-mono">${item.m}</span>
+                                <span class="text-slate-300 mx-1">/</span>
+                                <span class="text-slate-500">樣本 n:</span>
+                                <span class="font-bold text-emerald-600 font-mono">${item.n}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[9px] text-slate-400 block font-semibold">估計值 $\hat{N}$</span>
+                                <span class="font-mono font-bold ${isFail ? 'text-rose-500 text-xs' : 'text-slate-700 text-sm'}">
+                                    ${isFail ? '除零失效' : item.est + ' 隻'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // 由於動態插入了含有 $...$ 的 HTML，調用 KaTeX 重新渲染
+            renderMathInElement(historyList, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+        }
+
+        // --- UI 操作狀態變更 (Disable 邏輯) ---
+        function updateUI() {
+            uiN.textContent = inN.value;
+            uiM.textContent = inM.value;
+            uiSample.textContent = inSample.value;
+
+            // 各級別最大值限制邏輯
+            const currentN = parseInt(inN.value);
+            inM.max = Math.floor(currentN * 0.8); // 標記數上限限制在 80% N
+            inSample.max = Math.floor(currentN * 0.8); // 抽樣上限限制在 80% N
+
+            if (parseInt(inM.value) > inM.max) inM.value = inM.max;
+            if (parseInt(inSample.value) > inSample.max) inSample.value = inSample.max;
+
+            const isMarkedState = simulationState === 'marked';
+            
+            btnSample.disabled = !isMarkedState;
+            btnAuto10.disabled = !isMarkedState;
+            btnAuto50.disabled = !isMarkedState;
+
+            // 動態 CSS 調整
+            const sampleBtnClasses = "py-3 text-white rounded-2xl font-bold shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-1 ";
+            btnSample.className = !isMarkedState
+                ? sampleBtnClasses + "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                : sampleBtnClasses + "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/10";
+
+            const auto10Classes = "py-3 text-white rounded-2xl font-bold shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-1 ";
+            btnAuto10.className = !isMarkedState
+                ? auto10Classes + "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                : auto10Classes + "bg-blue-600 hover:bg-blue-700 shadow-blue-500/10";
+
+            const auto50Classes = "w-full py-2.5 text-white rounded-2xl font-bold text-sm shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-1 ";
+            btnAuto50.className = !isMarkedState
+                ? auto50Classes + "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                : auto50Classes + "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/10";
+
+            // 標記階段禁止拖曳 N 導致數學崩潰
+            inN.disabled = isMarkedState;
+            if (isMarkedState) {
+                inN.classList.add('opacity-40');
+            } else {
+                inN.classList.remove('opacity-40');
+            }
+        }
+
+        // --- 事件綁定 ---
+        inN.addEventListener('input', () => {
+            playSynthSound('click');
+            initPond();
+        });
+
+        inM.addEventListener('input', () => {
+            playSynthSound('click');
+            uiM.textContent = inM.value;
+            if (simulationState === 'marked') {
+                btnMark.classList.add('animate-pulse');
+            }
+        });
+
+        inSample.addEventListener('input', () => {
+            playSynthSound('click');
+            uiSample.textContent = inSample.value;
+        });
+
+        // 綁定公式公式切換
+        document.querySelectorAll('input[name="formula-type"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                playSynthSound('click');
+                selectedFormula = e.target.value;
+                // 更新高亮樣式
+                e.target.closest('div').querySelectorAll('label').forEach(lbl => {
+                    lbl.classList.remove('border-blue-500', 'bg-blue-50/50');
+                });
+                e.target.parentElement.classList.add('border-blue-500', 'bg-blue-50/50');
+                
+                // 重新渲染歷史紀錄與折線圖
+                if (samplingHistory.length > 0) {
+                    samplingHistory.forEach(item => {
+                        if (selectedFormula === 'lincoln') {
+                            item.est = item.m > 0 ? Math.round((item.n * parseInt(inM.value)) / item.m) : null;
+                        } else {
+                            item.est = Math.round(((parseInt(inM.value) + 1) * (item.n + 1)) / (item.m + 1)) - 1;
+                        }
+                    });
+                    updateStats();
+                    renderHistory();
+                    updateChartData();
+                }
+            });
+        });
+
+        btnMark.addEventListener('click', () => {
+            btnMark.classList.remove('animate-pulse');
+            markFish();
+        });
+
+        btnSample.addEventListener('click', () => sampleFish(true));
+        
+        btnAuto10.addEventListener('click', () => runAutoSimulation(10));
+        btnAuto50.addEventListener('click', () => runAutoSimulation(50));
+
+        btnClear.addEventListener('click', () => {
+            playSynthSound('reset');
+            samplingHistory = [];
+            fishArray.forEach(f => {
+                f.isSampled = false;
+            });
+            updateStats();
+            renderHistory();
+            updateChartData();
+            lastResultCard.classList.add('hidden');
+        });
+
+        btnToggleSound.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                soundIcon.setAttribute('data-lucide', 'volume-2');
+                btnToggleSound.classList.remove('text-slate-400');
+                btnToggleSound.classList.add('text-slate-600');
+                playSynthSound('mark');
+            } else {
+                soundIcon.setAttribute('data-lucide', 'volume-x');
+                btnToggleSound.classList.add('text-slate-400');
+                btnToggleSound.classList.remove('text-slate-600');
+            }
+            lucide.createIcons();
+        });
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+
+        // --- 啟動初始化 ---
+        window.onload = function() {
+            lucide.createIcons();
+            
+            // 1. 初始化 KaTeX 渲染
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+
+            // 2. 初始化圖表與生態池
+            initChart();
+            initPond();
+            
+            // 3. 啟動主繪製 Loop
+            animationLoop();
+
+            // 4. 手動觸發首選樣式高亮
+            document.querySelector('input[name="formula-type"]:checked').parentElement.classList.add('border-blue-500', 'bg-blue-50/50');
+        };
+    </script>
+</body>
+</html>
